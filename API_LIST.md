@@ -412,15 +412,27 @@ Authorization: Bearer {token}
   "code": 200,
   "message": "success",
   "data": {
+    "date": "2026-03-29",
     "studyCount": 20,
     "correctCount": 16,
-    "accuracy": 0.8,
+    "accuracyRate": 80.0,
     "durationSeconds": 680,
-    "dailyTargetCount": 20,
-    "finished": true
+    "pointsEarned": 16,
+    "checkedIn": true,
+    "streakDays": 5,
+    "totalPoints": 128,
+    "pendingReviewCount": 6,
+    "totalStudied": 240,
+    "totalCorrect": 188
   }
 }
 ```
+
+说明：
+
+- 今日维度数据来自 `daily_checkin`
+- 累计积分、累计学习数、连续天数来自 `user_points`
+- `pendingReviewCount` 表示当前 `ACTIVE` 状态错题数
 
 ## 6.4 获取学习统计
 
@@ -432,16 +444,50 @@ Authorization: Bearer {token}
 
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
-| rangeType | string | `WEEK` / `MONTH` / `ALL` |
+| rangeType | string | 当前最小可用实现支持 `WEEK` |
 
-返回体建议包含：
+返回体：
 
-- 总学习数
-- 总正确数
-- 正确率
-- 连续学习天数
-- 每日趋势数组
-- 熟练度分布数组
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "rangeType": "WEEK",
+    "startDate": "2026-03-23",
+    "endDate": "2026-03-29",
+    "rangeStudyCount": 48,
+    "rangeCorrectCount": 39,
+    "rangeAccuracyRate": 81.25,
+    "rangeDurationSeconds": 1420,
+    "rangePointsEarned": 39,
+    "totalStudied": 240,
+    "totalCorrect": 188,
+    "totalAccuracyRate": 78.33,
+    "totalPoints": 128,
+    "streakDays": 5,
+    "maxStreakDays": 9,
+    "pendingReviewCount": 6,
+    "totalWrongCount": 11,
+    "trend": [
+      {
+        "date": "2026-03-23",
+        "studyCount": 6,
+        "correctCount": 5,
+        "accuracyRate": 83.33,
+        "durationSeconds": 180,
+        "pointsEarned": 5
+      }
+    ]
+  }
+}
+```
+
+说明：
+
+- 区间趋势数据来自 `daily_checkin`
+- `trend` 会补齐最近 7 天缺失日期，未学习日期返回 `0`
+- 累计数据来自 `user_points`
 
 ---
 

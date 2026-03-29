@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.wordsprint.common.BusinessException;
 import com.example.wordsprint.common.ErrorCode;
 import com.example.wordsprint.dto.StudyRandomQuery;
+import com.example.wordsprint.dto.StudyStatisticsQuery;
 import com.example.wordsprint.dto.StudySubmitRequest;
 import com.example.wordsprint.entity.DailyCheckin;
 import com.example.wordsprint.entity.StudyRecord;
@@ -19,7 +20,10 @@ import com.example.wordsprint.service.StudyService;
 import com.example.wordsprint.service.RedisRankService;
 import com.example.wordsprint.vo.StudyQuestionVO;
 import com.example.wordsprint.vo.StudyRandomResponse;
+import com.example.wordsprint.vo.StudyStatisticsPointVO;
+import com.example.wordsprint.vo.StudyStatisticsVO;
 import com.example.wordsprint.vo.StudySubmitResponse;
+import com.example.wordsprint.vo.StudyTodaySummaryVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
@@ -30,6 +34,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -61,6 +66,7 @@ public class StudyServiceImpl implements StudyService {
     private static final int RANDOM_POOL_LIMIT = 200;
     private static final int CHOICE_OPTION_COUNT = 4;
     private static final Duration SUBMIT_LOCK_TTL = Duration.ofSeconds(3);
+    private static final String RANGE_TYPE_WEEK = "WEEK";
 
     private final WordCardMapper wordCardMapper;
     private final StudyRecordMapper studyRecordMapper;
@@ -115,6 +121,98 @@ public class StudyServiceImpl implements StudyService {
         response.setCorrectAnswer(correctAnswer);
         response.setFamiliarityLevel(wordCard.getFamiliarityLevel());
         response.setMemoryStatus(wordCard.getMemoryStatus());
+        return response;
+    }
+
+    @Override
+    public StudyTodaySummaryVO todaySummary(Long userId) {
+        LocalDate today = LocalDate.now();
+        DailyCheckin todayCheckin = getDailyCheckin(userId, today);
+        UserPoints userPoints = getUserPoints(userId);
+
+        StudyTodaySummaryVO response = new StudyTodaySummaryVO();
+        response.setDate(today);
+        response.setStudyCount(todayCheckin == null ? 0 : nullSafe(todayCheckin.getStudyCount()));
+        response.setCorrectCount(todayCheckin == null ? 0 : nullSafe(todayCheckin.getCorrectCount()));
+        response.setAccuracyRate(calculateRate(response.getCorrectCount(), response.getStudyCount()));
+        response.setDurationSeconds(todayCheckin == null ? 0 : nullSafe(todayCheckin.getTotalDurationSeconds()));
+        response.setPointsEarned(todayCheckin == null ? 0 : nullSafe(todayCheckin.getPointsEarned()));
+        response.setCheckedIn(todayCheckin != null && response.getStudyCount() > 0);
+        response.setStreakDays(resolveCurrentStreakDays(userPoints));
+        response.setTotalPoints(userPoints == null ? 0 : nullSafe(userPoints.getTotalPoints()));
+        response.setPendingReviewCount(countWrongWords(userId, "ACTIVE"));
+        response.setTotalStudied(userPoints == null ? 0 : nullSafe(userPoints.getTotalStudied()));
+        response.setTotalCorrect(userPoints == null ? 0 : nullSafe(userPoints.getTotalCorrect()));
+        return response;
+    }
+
+    @Override
+    public StudyStatisticsVO statistics(Long userId, StudyStatisticsQuery query) {
+        String rangeType = normalizeRangeType(query.getRangeType());
+        if (!RANGE_TYPE_WEEK.equals(rangeType)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "统计范围不合法");
+        }
+
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(6);
+        List<DailyCheckin> checkins = dailyCheckinMapper.selectList(new LambdaQueryWrapper<DailyCheckin>()
+                .eq(DailyCheckin::getUserId, userId)
+                .between(DailyCheckin::getCheckinDate, startDate, endDate)
+                .orderByAsc(DailyCheckin::getCheckinDate));
+        Map<LocalDate, DailyCheckin> checkinMap = checkins.stream()
+                .collect(Collectors.toMap(DailyCheckin::getCheckinDate, checkin -> checkin));
+
+        List<StudyStatisticsPointVO> trend = new ArrayList<>();
+        int rangeStudyCount = 0;
+        int rangeCorrectCount = 0;
+        int rangeDurationSeconds = 0;
+        int rangePointsEarned = 0;
+
+        long days = ChronoUnit.DAYS.between(startDate, endDate);
+        for (int i = 0; i <= days; i++) {
+            LocalDate currentDate = startDate.plusDays(i);
+            DailyCheckin checkin = checkinMap.get(currentDate);
+
+            int studyCount = checkin == null ? 0 : nullSafe(checkin.getStudyCount());
+            int correctCount = checkin == null ? 0 : nullSafe(checkin.getCorrectCount());
+            int durationSeconds = checkin == null ? 0 : nullSafe(checkin.getTotalDurationSeconds());
+            int pointsEarned = checkin == null ? 0 : nullSafe(checkin.getPointsEarned());
+
+            StudyStatisticsPointVO point = new StudyStatisticsPointVO();
+            point.setDate(currentDate);
+            point.setStudyCount(studyCount);
+            point.setCorrectCount(correctCount);
+            point.setAccuracyRate(calculateRate(correctCount, studyCount));
+            point.setDurationSeconds(durationSeconds);
+            point.setPointsEarned(pointsEarned);
+            trend.add(point);
+
+            rangeStudyCount += studyCount;
+            rangeCorrectCount += correctCount;
+            rangeDurationSeconds += durationSeconds;
+            rangePointsEarned += pointsEarned;
+        }
+
+        UserPoints userPoints = getUserPoints(userId);
+
+        StudyStatisticsVO response = new StudyStatisticsVO();
+        response.setRangeType(rangeType);
+        response.setStartDate(startDate);
+        response.setEndDate(endDate);
+        response.setRangeStudyCount(rangeStudyCount);
+        response.setRangeCorrectCount(rangeCorrectCount);
+        response.setRangeAccuracyRate(calculateRate(rangeCorrectCount, rangeStudyCount));
+        response.setRangeDurationSeconds(rangeDurationSeconds);
+        response.setRangePointsEarned(rangePointsEarned);
+        response.setTotalStudied(userPoints == null ? 0 : nullSafe(userPoints.getTotalStudied()));
+        response.setTotalCorrect(userPoints == null ? 0 : nullSafe(userPoints.getTotalCorrect()));
+        response.setTotalAccuracyRate(calculateRate(response.getTotalCorrect(), response.getTotalStudied()));
+        response.setTotalPoints(userPoints == null ? 0 : nullSafe(userPoints.getTotalPoints()));
+        response.setStreakDays(resolveCurrentStreakDays(userPoints));
+        response.setMaxStreakDays(userPoints == null ? 0 : nullSafe(userPoints.getMaxStreakDays()));
+        response.setPendingReviewCount(countWrongWords(userId, "ACTIVE"));
+        response.setTotalWrongCount(countWrongWords(userId, null));
+        response.setTrend(trend);
         return response;
     }
 
@@ -381,6 +479,29 @@ public class StudyServiceImpl implements StudyService {
                 .last("LIMIT 1"));
     }
 
+    private DailyCheckin getDailyCheckin(Long userId, LocalDate checkinDate) {
+        return dailyCheckinMapper.selectOne(new LambdaQueryWrapper<DailyCheckin>()
+                .eq(DailyCheckin::getUserId, userId)
+                .eq(DailyCheckin::getCheckinDate, checkinDate)
+                .last("LIMIT 1"));
+    }
+
+    private UserPoints getUserPoints(Long userId) {
+        return userPointsMapper.selectOne(new LambdaQueryWrapper<UserPoints>()
+                .eq(UserPoints::getUserId, userId)
+                .last("LIMIT 1"));
+    }
+
+    private Integer countWrongWords(Long userId, String status) {
+        LambdaQueryWrapper<WrongWord> queryWrapper = new LambdaQueryWrapper<WrongWord>()
+                .eq(WrongWord::getUserId, userId);
+        if (StringUtils.hasText(status)) {
+            queryWrapper.eq(WrongWord::getStatus, status);
+        }
+        Long count = wrongWordMapper.selectCount(queryWrapper);
+        return count == null ? 0 : count.intValue();
+    }
+
     private DailyCheckin getOrCreateDailyCheckin(Long userId, LocalDate checkinDate) {
         DailyCheckin checkin = dailyCheckinMapper.selectOne(new LambdaQueryWrapper<DailyCheckin>()
                 .eq(DailyCheckin::getUserId, userId)
@@ -486,6 +607,13 @@ public class StudyServiceImpl implements StudyService {
         return mode.trim().toUpperCase();
     }
 
+    private String normalizeRangeType(String rangeType) {
+        if (!StringUtils.hasText(rangeType)) {
+            return "";
+        }
+        return rangeType.trim().toUpperCase();
+    }
+
     private String normalizeText(String value) {
         if (!StringUtils.hasText(value)) {
             return "";
@@ -511,6 +639,29 @@ public class StudyServiceImpl implements StudyService {
             return 0;
         }
         return Math.min(familiarity, MAX_FAMILIARITY);
+    }
+
+    private int nullSafe(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private int resolveCurrentStreakDays(UserPoints userPoints) {
+        if (userPoints == null || userPoints.getLastCheckinDate() == null) {
+            return 0;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate lastCheckinDate = userPoints.getLastCheckinDate();
+        if (lastCheckinDate.isBefore(today.minusDays(1))) {
+            return 0;
+        }
+        return nullSafe(userPoints.getStreakDays());
+    }
+
+    private double calculateRate(int numerator, int denominator) {
+        if (denominator <= 0) {
+            return 0D;
+        }
+        return Math.round((double) numerator * 10000 / denominator) / 100D;
     }
 
     private String trimToNull(String value) {

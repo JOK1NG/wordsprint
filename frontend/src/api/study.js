@@ -15,3 +15,18 @@ export function submitStudyAnswer(data) {
     data,
   })
 }
+
+export function getTodayStudySummary() {
+  return request({
+    url: '/api/study/today-summary',
+    method: 'get',
+  })
+}
+
+export function getStudyStatistics(params) {
+  return request({
+    url: '/api/study/statistics',
+    method: 'get',
+    params,
+  })
+}
