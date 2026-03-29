@@ -51,6 +51,19 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
+      <el-alert
+        v-if="loadErrorText"
+        :title="loadErrorText"
+        type="error"
+        :closable="false"
+        show-icon
+        class="load-error-alert"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadData">重试加载</el-button>
+        </template>
+      </el-alert>
+
       <el-table :data="tableData" v-loading="loading" stripe>
         <el-table-column prop="word" label="单词" width="150" />
         <el-table-column prop="phonetic" label="音标" width="120" />
@@ -175,10 +188,12 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, RefreshLeft, Edit, Delete, UploadFilled } from '@element-plus/icons-vue'
 import { deleteWordCard, getWordCardList, importWordCardsCsv } from '../../api/wordCard'
+import { extractErrorMessage } from '../../utils/error'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref([])
+const loadErrorText = ref('')
 const importDialogVisible = ref(false)
 const importFile = ref(null)
 const importFileList = ref([])
@@ -212,6 +227,7 @@ const parseTags = (tags) => {
 
 const loadData = async () => {
   loading.value = true
+  loadErrorText.value = ''
   try {
     const params = {
       pageNum: pagination.pageNum,
@@ -222,9 +238,15 @@ const loadData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.list || []
       pagination.total = res.data.total || 0
+    } else {
+      tableData.value = []
+      pagination.total = 0
+      loadErrorText.value = res.message || '获取单词卡列表失败'
     }
   } catch (error) {
-    ElMessage.error('获取单词卡列表失败')
+    tableData.value = []
+    pagination.total = 0
+    loadErrorText.value = extractErrorMessage(error, '获取单词卡列表失败')
   } finally {
     loading.value = false
   }
@@ -281,7 +303,7 @@ const handleDelete = (row) => {
         ElMessage.error(res.message || '删除失败')
       }
     } catch (error) {
-      ElMessage.error('删除失败')
+      ElMessage.error(extractErrorMessage(error, '删除失败'))
     }
   }).catch(() => {})
 }
@@ -352,7 +374,7 @@ const handleImportSubmit = async () => {
       ElMessage.success('导入成功')
     }
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || error.message || '导入失败')
+    ElMessage.error(extractErrorMessage(error, '导入失败'))
   } finally {
     importing.value = false
   }
@@ -394,6 +416,10 @@ onMounted(() => {
 
 .table-card {
   min-height: 400px;
+}
+
+.load-error-alert {
+  margin-bottom: 12px;
 }
 
 .tag-item {

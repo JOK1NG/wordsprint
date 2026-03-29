@@ -48,6 +48,30 @@ const routeMetaMap = {
     title: '学习仪表盘',
     subtitle: '保持每天一点点积累。',
   },
+  wordCardList: {
+    title: '我的单词卡',
+    subtitle: '管理你的个人词库，支持搜索、编辑与导入。',
+  },
+  wordCardCreate: {
+    title: '新增单词卡',
+    subtitle: '补充新词，逐步扩展你的学习词库。',
+  },
+  wordCardEdit: {
+    title: '编辑单词卡',
+    subtitle: '修正词义、例句与标签，保持词库准确。',
+  },
+  studyTraining: {
+    title: '学习训练',
+    subtitle: '按模式刷题并即时获得反馈，持续提升熟练度。',
+  },
+  wrongWordList: {
+    title: '错题本',
+    subtitle: '聚焦薄弱项，针对性复习并及时纠正。',
+  },
+  rank: {
+    title: '排行榜',
+    subtitle: '查看你的积分和连续学习排名。',
+  },
   statistics: {
     title: '学习统计',
     subtitle: '回顾你的学习投入、正确率与阶段趋势。',

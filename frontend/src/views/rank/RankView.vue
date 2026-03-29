@@ -9,6 +9,19 @@
     </div>
 
     <el-card shadow="never" class="rank-card">
+      <el-alert
+        v-if="errorText"
+        :title="errorText"
+        type="error"
+        :closable="false"
+        show-icon
+        class="load-error-alert"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadRankData">重试加载</el-button>
+        </template>
+      </el-alert>
+
       <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="rank-tabs">
         <el-tab-pane label="积分榜" name="points" />
         <el-tab-pane label="连续打卡榜" name="streak" />
@@ -91,6 +104,7 @@ import { ElMessage } from 'element-plus'
 import { Trophy } from '@element-plus/icons-vue'
 import { getPointsRank, getStreakRank } from '../../api/rank'
 import { useUserStore } from '../../stores/user'
+import { extractErrorMessage } from '../../utils/error'
 
 const userStore = useUserStore()
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
@@ -99,6 +113,7 @@ const activeTab = ref('points')
 const loading = ref(false)
 const rankList = ref([])
 const myRank = ref(null)
+const errorText = ref('')
 
 const scoreLabel = computed(() => {
   return activeTab.value === 'points' ? '总积分' : '连续打卡'
@@ -122,6 +137,7 @@ const getRowClassName = ({ row }) => {
 
 const loadRankData = async () => {
   loading.value = true
+  errorText.value = ''
   try {
     let res
     if (activeTab.value === 'points') {
@@ -144,10 +160,14 @@ const loadRankData = async () => {
         myRank.value = null
       }
     } else {
-      ElMessage.error(res.message || '获取榜单失败')
+      rankList.value = []
+      myRank.value = null
+      errorText.value = res.message || '获取榜单失败'
     }
   } catch (error) {
-    ElMessage.error('获取榜单失败')
+    rankList.value = []
+    myRank.value = null
+    errorText.value = extractErrorMessage(error, '获取榜单失败')
   } finally {
     loading.value = false
   }
@@ -169,6 +189,10 @@ onMounted(() => {
 
 .rank-tabs {
   margin-bottom: 20px;
+}
+
+.load-error-alert {
+  margin-bottom: 12px;
 }
 
 /* 我的排名卡片 */

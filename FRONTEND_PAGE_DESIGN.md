@@ -48,8 +48,8 @@
 /register           注册页
 /                   学习仪表盘
 /word-cards         单词卡列表页
-/word-cards/new     新增单词卡页
-/word-cards/:id/edit 编辑单词卡页
+/word-cards/create  新增单词卡页
+/word-cards/edit/:id 编辑单词卡页
 /study              学习训练页
 /wrong-words        错题本页
 /rank               排行榜页
@@ -230,9 +230,9 @@
 
 ### 需要接口
 
-- `GET /api/dashboard/summary`
 - `GET /api/study/today-summary`
 - `GET /api/study/statistics?rangeType=WEEK`
+- `GET /api/study-plan`
 
 ---
 
@@ -271,8 +271,8 @@
 
 ### 核心交互
 
-- 点击“新增单词卡”进入 `/word-cards/new`
-- 点击“编辑”进入 `/word-cards/:id/edit`
+- 点击“新增单词卡”进入 `/word-cards/create`
+- 点击“编辑”进入 `/word-cards/edit/:id`
 - 点击“删除”弹确认框
 - 点击某一行可查看详情抽屉或详情弹窗
 
@@ -432,7 +432,6 @@
 
 - 积分榜
 - 连续打卡榜
-- 周学习时长榜
 
 ### 列表字段
 
@@ -449,7 +448,6 @@
 
 - `GET /api/rank/points`
 - `GET /api/rank/streak`
-- `GET /api/rank/weekly-duration`
 
 ---
 
@@ -617,7 +615,6 @@
 
 - `/api/rank/points`
 - `/api/rank/streak`
-- `/api/rank/weekly-duration`
 - `/api/study/statistics`
 - `/api/checkin/calendar`
 - `/api/study-plan`

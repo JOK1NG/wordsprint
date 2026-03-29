@@ -29,6 +29,19 @@
       </div>
     </el-card>
 
+    <el-alert
+      v-if="questionErrorText"
+      :title="questionErrorText"
+      type="error"
+      :closable="false"
+      show-icon
+      class="load-error-alert"
+    >
+      <template #default>
+        <el-button link type="primary" @click="startTraining">重试获取题目</el-button>
+      </template>
+    </el-alert>
+
     <el-card v-if="!started" shadow="never">
       <el-empty description="请选择训练模式后开始" />
     </el-card>
@@ -123,6 +136,7 @@ import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { getStudyRandom, submitStudyAnswer } from '../../api/study'
+import { extractErrorMessage } from '../../utils/error'
 
 const studyMode = ref('WORD_TO_MEANING')
 const questionSize = ref(10)
@@ -137,6 +151,7 @@ const currentIndex = ref(0)
 const answerContent = ref('')
 const feedback = ref(null)
 const questionStartAt = ref(0)
+const questionErrorText = ref('')
 
 const sessionStats = reactive({
   answered: 0,
@@ -191,13 +206,14 @@ const resetSessionData = () => {
 
 const startTraining = async () => {
   loadingQuestions.value = true
+  questionErrorText.value = ''
   try {
     const res = await getStudyRandom({
       mode: studyMode.value,
       size: questionSize.value,
     })
     if (res.code !== 200) {
-      ElMessage.error(res.message || '获取题目失败')
+      questionErrorText.value = res.message || '获取题目失败'
       return
     }
 
@@ -212,8 +228,8 @@ const startTraining = async () => {
     }
 
     questionStartAt.value = Date.now()
-  } catch {
-    ElMessage.error('获取题目失败')
+  } catch (error) {
+    questionErrorText.value = extractErrorMessage(error, '获取题目失败')
   } finally {
     loadingQuestions.value = false
   }
@@ -249,8 +265,8 @@ const submitAnswer = async () => {
     if (res.data?.isCorrect) {
       sessionStats.correct += 1
     }
-  } catch {
-    ElMessage.error('提交失败')
+  } catch (error) {
+    ElMessage.error(extractErrorMessage(error, '提交失败'))
   } finally {
     submitting.value = false
   }
@@ -273,6 +289,10 @@ const nextQuestion = () => {
 .mode-card,
 .question-card,
 .summary-card {
+  max-width: 900px;
+}
+
+.load-error-alert {
   max-width: 900px;
 }
 

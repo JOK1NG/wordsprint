@@ -27,6 +27,19 @@
     </el-row>
 
     <el-card shadow="never" class="table-card">
+      <el-alert
+        v-if="errorText"
+        :title="errorText"
+        type="error"
+        :closable="false"
+        show-icon
+        class="load-error-alert"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadData">重试加载</el-button>
+        </template>
+      </el-alert>
+
       <el-tabs v-model="currentStatus" @tab-change="handleStatusChange">
         <el-tab-pane label="全部" name="" />
         <el-tab-pane label="活跃" name="ACTIVE" />
@@ -101,6 +114,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Flag, Edit, Delete, RefreshLeft } from '@element-plus/icons-vue'
 import { getWrongWordList, removeWrongWord, restoreWrongWord } from '../../api/wrongWord'
+import { extractErrorMessage } from '../../utils/error'
 
 const router = useRouter()
 
@@ -112,6 +126,7 @@ const pageSize = ref(10)
 const currentStatus = ref('')
 const activeCount = ref(0)
 const totalCount = ref(0)
+const errorText = ref('')
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
@@ -127,6 +142,7 @@ const formatDate = (dateStr) => {
 
 const loadData = async () => {
   loading.value = true
+  errorText.value = ''
   try {
     const params = {
       pageNum: currentPage.value,
@@ -139,9 +155,19 @@ const loadData = async () => {
       total.value = res.data.total || 0
       activeCount.value = res.data.activeCount || 0
       totalCount.value = res.data.totalCount || 0
+    } else {
+      list.value = []
+      total.value = 0
+      activeCount.value = 0
+      totalCount.value = 0
+      errorText.value = res.message || '获取错题列表失败'
     }
   } catch (error) {
-    ElMessage.error('获取错题列表失败')
+    list.value = []
+    total.value = 0
+    activeCount.value = 0
+    totalCount.value = 0
+    errorText.value = extractErrorMessage(error, '获取错题列表失败')
   } finally {
     loading.value = false
   }
@@ -190,7 +216,7 @@ const handleRemove = (row) => {
         ElMessage.error(res.message || '移除失败')
       }
     } catch (error) {
-      ElMessage.error('移除失败')
+      ElMessage.error(extractErrorMessage(error, '移除失败'))
     }
   }).catch(() => {})
 }
@@ -214,7 +240,7 @@ const handleRestore = (row) => {
         ElMessage.error(res.message || '撤销失败')
       }
     } catch (error) {
-      ElMessage.error('撤销失败')
+      ElMessage.error(extractErrorMessage(error, '撤销失败'))
     }
   }).catch(() => {})
 }
@@ -249,6 +275,10 @@ onMounted(() => {
 
 .table-card {
   min-height: 400px;
+}
+
+.load-error-alert {
+  margin-bottom: 12px;
 }
 
 .pagination-wrapper {

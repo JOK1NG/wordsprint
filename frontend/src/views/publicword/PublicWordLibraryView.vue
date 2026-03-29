@@ -38,6 +38,19 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
+      <el-alert
+        v-if="loadErrorText"
+        :title="loadErrorText"
+        type="error"
+        :closable="false"
+        show-icon
+        class="load-error-alert"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadData">重试加载</el-button>
+        </template>
+      </el-alert>
+
       <el-table :data="tableData" v-loading="loading" stripe>
         <el-table-column prop="word" label="单词" width="180" />
         <el-table-column prop="phonetic" label="音标" width="140" />
@@ -146,6 +159,7 @@ import { UploadFilled } from '@element-plus/icons-vue'
 
 import { getPublicWordList, importPublicWord, importPublicWordsCsv } from '../../api/publicWord'
 import { useUserStore } from '../../stores/user'
+import { extractErrorMessage } from '../../utils/error'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -153,6 +167,7 @@ const userStore = useUserStore()
 const loading = ref(false)
 const tableData = ref([])
 const importingId = ref(null)
+const loadErrorText = ref('')
 const importDialogVisible = ref(false)
 const importFile = ref(null)
 const importFileList = ref([])
@@ -174,6 +189,7 @@ const isAdmin = computed(() => userStore.userInfo?.role === 'ADMIN')
 
 const loadData = async () => {
   loading.value = true
+  loadErrorText.value = ''
   try {
     const params = {
       pageNum: pagination.pageNum,
@@ -186,10 +202,14 @@ const loadData = async () => {
       tableData.value = res.data?.list || []
       pagination.total = res.data?.total || 0
     } else {
-      ElMessage.error(res.message || '获取公共词库失败')
+      tableData.value = []
+      pagination.total = 0
+      loadErrorText.value = res.message || '获取公共词库失败'
     }
   } catch (error) {
-    ElMessage.error('获取公共词库失败')
+    tableData.value = []
+    pagination.total = 0
+    loadErrorText.value = extractErrorMessage(error, '获取公共词库失败')
   } finally {
     loading.value = false
   }
@@ -237,7 +257,7 @@ const handleImport = async (row) => {
 
     ElMessage.info(`"${row.word}" 已在你的词库中`)
   } catch (error) {
-    ElMessage.error('导入失败')
+    ElMessage.error(extractErrorMessage(error, '导入失败'))
   } finally {
     importingId.value = null
   }
@@ -312,7 +332,7 @@ const handleImportCsvSubmit = async () => {
     }
     loadData()
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || error.message || '导入失败')
+    ElMessage.error(extractErrorMessage(error, '导入失败'))
   } finally {
     importingCsv.value = false
   }
@@ -354,6 +374,10 @@ onMounted(() => {
 
 .table-card {
   min-height: 400px;
+}
+
+.load-error-alert {
+  margin-bottom: 12px;
 }
 
 .pagination-wrapper {
