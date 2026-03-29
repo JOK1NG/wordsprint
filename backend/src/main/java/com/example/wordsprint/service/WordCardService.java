@@ -4,7 +4,9 @@ import com.example.wordsprint.common.PageResult;
 import com.example.wordsprint.dto.WordCardCreateRequest;
 import com.example.wordsprint.dto.WordCardPageQuery;
 import com.example.wordsprint.dto.WordCardUpdateRequest;
+import com.example.wordsprint.vo.WordCardImportResultVO;
 import com.example.wordsprint.vo.WordCardVO;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface WordCardService {
 
@@ -17,4 +19,6 @@ public interface WordCardService {
     WordCardVO getById(Long userId, Long id);
 
     PageResult<WordCardVO> page(Long userId, WordCardPageQuery query);
+
+    WordCardImportResultVO importCsv(Long userId, MultipartFile file);
 }

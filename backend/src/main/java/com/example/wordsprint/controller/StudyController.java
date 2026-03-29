@@ -6,6 +6,7 @@ import com.example.wordsprint.dto.StudyStatisticsQuery;
 import com.example.wordsprint.dto.StudySubmitRequest;
 import com.example.wordsprint.security.CurrentUserProvider;
 import com.example.wordsprint.service.StudyService;
+import com.example.wordsprint.vo.FamiliarityDistributionVO;
 import com.example.wordsprint.vo.StudyRandomResponse;
 import com.example.wordsprint.vo.StudyStatisticsVO;
 import com.example.wordsprint.vo.StudySubmitResponse;
@@ -46,5 +47,10 @@ public class StudyController {
     @GetMapping("/statistics")
     public Result<StudyStatisticsVO> statistics(@Valid StudyStatisticsQuery query) {
         return Result.success(studyService.statistics(currentUserProvider.getCurrentUserId(), query));
+    }
+
+    @GetMapping("/familiarity-distribution")
+    public Result<FamiliarityDistributionVO> familiarityDistribution() {
+        return Result.success(studyService.familiarityDistribution(currentUserProvider.getCurrentUserId()));
     }
 }

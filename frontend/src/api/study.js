@@ -30,3 +30,18 @@ export function getStudyStatistics(params) {
     params,
   })
 }
+
+export function getStudyFamiliarityDistribution() {
+  return request({
+    url: '/api/study/familiarity-distribution',
+    method: 'get',
+  })
+}
+
+export function getCheckinCalendar(params) {
+  return request({
+    url: '/api/checkin/calendar',
+    method: 'get',
+    params,
+  })
+}

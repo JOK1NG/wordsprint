@@ -6,9 +6,14 @@
         <h1>我的单词卡</h1>
         <p class="page-description">管理你的单词卡片，支持新增、编辑、删除和搜索。</p>
       </div>
-      <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon>新增单词卡
-      </el-button>
+      <div class="header-actions">
+        <el-button @click="handleOpenImportDialog">
+          CSV 导入
+        </el-button>
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon>新增单词卡
+        </el-button>
+      </div>
     </div>
 
     <el-card shadow="never" class="search-card">
@@ -98,6 +103,69 @@
         />
       </div>
     </el-card>
+
+    <el-dialog
+      v-model="importDialogVisible"
+      title="CSV 导入词卡"
+      width="620px"
+      :close-on-click-modal="!importing"
+      :close-on-press-escape="!importing"
+      :show-close="!importing"
+    >
+      <div class="import-guidelines">
+        <div class="import-guidelines-head">
+          <p>文件要求：</p>
+          <el-button link type="primary" @click="handleDownloadTemplate">下载 CSV 模板</el-button>
+        </div>
+        <ul>
+          <li>仅支持 <code>.csv</code> 文件，建议 UTF-8 编码。</li>
+          <li>列顺序：<code>word,meaning,phonetic,exampleSentence,tags,isPublic</code>。</li>
+          <li>前两列 <code>word</code> 和 <code>meaning</code> 必填；首行表头可选。</li>
+          <li><code>tags</code> 建议用 <code>|</code> 分隔，如 <code>cet4|verb</code>。</li>
+        </ul>
+      </div>
+
+      <el-upload
+        v-model:file-list="importFileList"
+        drag
+        action="#"
+        :auto-upload="false"
+        :limit="1"
+        accept=".csv,text/csv"
+        :on-change="handleImportFileChange"
+        :on-remove="handleImportFileRemove"
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">
+          将 CSV 文件拖到此处，或<em>点击上传</em>
+        </div>
+      </el-upload>
+
+      <div v-if="importResult" class="import-result">
+        <el-alert
+          :type="importResult.failedCount > 0 ? 'warning' : 'success'"
+          :title="`导入完成：共 ${importResult.totalRows} 行，成功 ${importResult.successCount} 行，失败 ${importResult.failedCount} 行`"
+          :closable="false"
+          show-icon
+        />
+
+        <div v-if="importResult.failedCount > 0" class="import-error-list">
+          <p>失败明细：</p>
+          <ul>
+            <li v-for="(item, index) in importResult.errors || []" :key="`${item.lineNumber}-${index}`">
+              第 {{ item.lineNumber }} 行：{{ item.reason }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button :disabled="importing" @click="importDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="importing" @click="handleImportSubmit">开始导入</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -105,12 +173,17 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, RefreshLeft, Edit, Delete } from '@element-plus/icons-vue'
-import { getWordCardList, deleteWordCard } from '../../api/wordCard'
+import { Plus, Search, RefreshLeft, Edit, Delete, UploadFilled } from '@element-plus/icons-vue'
+import { deleteWordCard, getWordCardList, importWordCardsCsv } from '../../api/wordCard'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref([])
+const importDialogVisible = ref(false)
+const importFile = ref(null)
+const importFileList = ref([])
+const importing = ref(false)
+const importResult = ref(null)
 
 const searchForm = reactive({
   keyword: '',
@@ -213,6 +286,96 @@ const handleDelete = (row) => {
   }).catch(() => {})
 }
 
+const handleOpenImportDialog = () => {
+  importDialogVisible.value = true
+  importFile.value = null
+  importFileList.value = []
+  importResult.value = null
+}
+
+const handleImportFileChange = (file, fileList) => {
+  const raw = file.raw
+  if (!raw) {
+    return
+  }
+
+  const isCsv = raw.name.toLowerCase().endsWith('.csv') || raw.type.includes('csv')
+  if (!isCsv) {
+    ElMessage.error('仅支持上传 .csv 文件')
+    importFile.value = null
+    importFileList.value = []
+    return
+  }
+
+  if (raw.size > 20 * 1024 * 1024) {
+    ElMessage.error('文件不能超过 20MB')
+    importFile.value = null
+    importFileList.value = []
+    return
+  }
+
+  importFile.value = raw
+  importFileList.value = fileList.slice(-1)
+}
+
+const handleImportFileRemove = () => {
+  importFile.value = null
+  importFileList.value = []
+}
+
+const handleImportSubmit = async () => {
+  if (importing.value) {
+    return
+  }
+
+  if (!importFile.value) {
+    ElMessage.warning('请先选择 CSV 文件')
+    return
+  }
+
+  importing.value = true
+  try {
+    const res = await importWordCardsCsv(importFile.value)
+    if (res.code !== 200) {
+      ElMessage.error(res.message || '导入失败')
+      return
+    }
+
+    importResult.value = res.data
+    if ((res.data?.successCount || 0) > 0) {
+      loadData()
+    }
+
+    if ((res.data?.failedCount || 0) > 0) {
+      ElMessage.warning('导入已完成，部分行失败，请检查失败明细')
+    } else {
+      ElMessage.success('导入成功')
+    }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || error.message || '导入失败')
+  } finally {
+    importing.value = false
+  }
+}
+
+const handleDownloadTemplate = () => {
+  const csvTemplate = [
+    'word,meaning,phonetic,exampleSentence,tags,isPublic',
+    'abandon,放弃,/əˈbændən/,He had to abandon the plan.,cet4|verb,false',
+    'benefit,好处,/ˈbenɪfɪt/,Regular exercise benefits your health.,cet4|noun,false',
+  ].join('\n')
+
+  const blob = new Blob([`\uFEFF${csvTemplate}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'wordsprint-word-cards-template.csv'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 onMounted(() => {
   loadData()
 })
@@ -221,6 +384,12 @@ onMounted(() => {
 <style scoped>
 .search-card {
   margin-bottom: 20px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .table-card {
@@ -241,5 +410,54 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.import-guidelines {
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.import-guidelines p {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.import-guidelines-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.import-guidelines ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.import-guidelines li {
+  margin-bottom: 6px;
+}
+
+.import-result {
+  margin-top: 14px;
+}
+
+.import-error-list {
+  margin-top: 10px;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 13px;
+  color: #606266;
+}
+
+.import-error-list p {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.import-error-list ul {
+  margin: 0;
+  padding-left: 18px;
 }
 </style>

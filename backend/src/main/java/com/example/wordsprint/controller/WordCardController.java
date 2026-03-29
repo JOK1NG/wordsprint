@@ -7,6 +7,7 @@ import com.example.wordsprint.dto.WordCardPageQuery;
 import com.example.wordsprint.dto.WordCardUpdateRequest;
 import com.example.wordsprint.security.CurrentUserProvider;
 import com.example.wordsprint.service.WordCardService;
+import com.example.wordsprint.vo.WordCardImportResultVO;
 import com.example.wordsprint.vo.WordCardVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @Validated
 @RestController
@@ -53,5 +56,10 @@ public class WordCardController {
     @GetMapping
     public Result<PageResult<WordCardVO>> page(@Valid WordCardPageQuery query) {
         return Result.success(wordCardService.page(currentUserProvider.getCurrentUserId(), query));
+    }
+
+    @PostMapping("/import/csv")
+    public Result<WordCardImportResultVO> importCsv(@RequestParam("file") MultipartFile file) {
+        return Result.success(wordCardService.importCsv(currentUserProvider.getCurrentUserId(), file));
     }
 }

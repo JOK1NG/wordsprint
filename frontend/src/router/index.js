@@ -6,6 +6,7 @@ import { useUserStore } from '../stores/user'
 import DashboardView from '../views/DashboardView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import ProfileView from '../views/profile/ProfileView.vue'
 import StudyTrainingView from '../views/study/StudyTrainingView.vue'
 import WordCardListView from '../views/wordcard/WordCardListView.vue'
 import WordCardFormView from '../views/wordcard/WordCardFormView.vue'
@@ -65,6 +66,21 @@ const router = createRouter({
           path: 'rank',
           name: 'rank',
           component: () => import('../views/rank/RankView.vue'),
+        },
+        {
+          path: 'statistics',
+          name: 'statistics',
+          component: () => import('../views/statistics/StatisticsView.vue'),
+        },
+        {
+          path: 'public-library',
+          name: 'publicLibrary',
+          component: () => import('../views/publicword/PublicWordLibraryView.vue'),
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: ProfileView,
         },
       ],
     },

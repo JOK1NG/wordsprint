@@ -37,3 +37,18 @@ export function deleteWordCard(id) {
     method: 'delete',
   })
 }
+
+export function importWordCardsCsv(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return request({
+    url: '/api/word-cards/import/csv',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 30000,
+  })
+}

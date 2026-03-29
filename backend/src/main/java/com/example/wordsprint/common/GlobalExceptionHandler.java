@@ -7,6 +7,8 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -22,6 +24,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleBadRequestException(Exception ex) {
         return ResponseEntity.badRequest()
                 .body(Result.fail(ErrorCode.BAD_REQUEST, "请求参数不合法"));
+    }
+
+    @ExceptionHandler({MaxUploadSizeExceededException.class, MultipartException.class})
+    public ResponseEntity<Result<Void>> handleMultipartException(Exception ex) {
+        return ResponseEntity.badRequest()
+                .body(Result.fail(ErrorCode.BAD_REQUEST, "上传文件不能超过 20MB"));
     }
 
     @ExceptionHandler(Exception.class)

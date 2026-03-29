@@ -162,6 +162,28 @@ Authorization: Bearer {token}
 }
 ```
 
+说明：
+
+- `nickname` 必填，去除首尾空白后长度需在 `2-20` 个字符之间
+- `avatar` 可为空；若传入非空字符串，长度不能超过 `255`
+- 仅允许更新当前登录用户自己的资料
+
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "username": "demo_user",
+    "nickname": "Demo New",
+    "avatar": "https://example.com/avatar.png",
+    "role": "USER"
+  }
+}
+```
+
 ## 2.5 退出登录
 
 - 方法：`POST`
@@ -183,6 +205,25 @@ Authorization: Bearer {token}
 - 路径：`/api/study-plan`
 - 鉴权：是
 
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "dailyTargetCount": 20,
+    "reviewTargetCount": 10,
+    "reminderEnabled": false,
+    "reminderTime": null
+  }
+}
+```
+
+说明：
+
+- 若当前用户还没有学习计划记录，返回默认值：`dailyTargetCount=20`、`reviewTargetCount=10`、`reminderEnabled=false`、`reminderTime=null`
+
 ## 3.2 更新学习计划
 
 - 方法：`PUT`
@@ -197,6 +238,28 @@ Authorization: Bearer {token}
   "reviewTargetCount": 10,
   "reminderEnabled": false,
   "reminderTime": null
+}
+```
+
+说明：
+
+- `dailyTargetCount`、`reviewTargetCount` 为正整数，当前实现限制为 `1-500`
+- `reminderEnabled=false` 时，`reminderTime` 可为空，服务端会清空已保存的提醒时间
+- `reminderEnabled=true` 时，`reminderTime` 必填，格式为 `HH:mm:ss`
+- 若当前用户还没有学习计划记录，更新时会自动创建
+
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "dailyTargetCount": 20,
+    "reviewTargetCount": 10,
+    "reminderEnabled": false,
+    "reminderTime": null
+  }
 }
 ```
 
@@ -286,6 +349,51 @@ Authorization: Bearer {token}
 | maxFamiliarity | int | 最大熟练度 |
 | wrongOnly | boolean | 是否只看错题 |
 
+## 4.6 CSV 导入单词卡
+
+- 方法：`POST`
+- 路径：`/api/word-cards/import/csv`
+- 鉴权：是
+- 请求类型：`multipart/form-data`
+
+请求参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| file | file | 是 | CSV 文件 |
+
+CSV 列顺序（前两列必填）：
+
+`word,meaning,phonetic,exampleSentence,tags,isPublic`
+
+说明：
+
+- 支持首行表头（`word,meaning,...`）
+- `tags` 建议用 `|` 分隔，如 `cet4|verb`
+- `isPublic` 支持 `true/false/1/0`
+- 文件大小上限 `20MB`
+- 当前实现会跳过无效行并继续导入其余行
+
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "totalRows": 6,
+    "successCount": 4,
+    "failedCount": 2,
+    "errors": [
+      {
+        "lineNumber": 4,
+        "reason": "word 和 meaning 不能为空"
+      }
+    ]
+  }
+}
+```
+
 ---
 
 ## 5. 公共词库模块
@@ -296,15 +404,64 @@ Authorization: Bearer {token}
 - 路径：`/api/public-words`
 - 鉴权：是
 
+查询参数：
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| pageNum | int | 页码，默认 1 |
+| pageSize | int | 每页数量，默认 10 |
+| keyword | string | 关键字，匹配单词/词义 |
+| levelTag | string | 难度标签，如 `CET4` |
+
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "word": "abandon",
+        "phonetic": "/əˈbændən/",
+        "meaning": "放弃",
+        "exampleSentence": "He had to abandon the plan.",
+        "levelTag": "CET4",
+        "sourceName": "official"
+      }
+    ],
+    "total": 126,
+    "pageNum": 1,
+    "pageSize": 10
+  }
+}
+```
+
 ## 5.2 加入到我的词库
 
 - 方法：`POST`
 - 路径：`/api/public-words/{id}/import`
 - 鉴权：是
 
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "wordCardId": 88,
+    "imported": true,
+    "word": "abandon"
+  }
+}
+```
+
 说明：
 
 - 从公共词库复制一份到当前用户的 `word_card`
+- 若用户已导入同单词同词义，返回 `imported=false`，避免重复导入
 
 ---
 
@@ -418,6 +575,7 @@ Authorization: Bearer {token}
     "accuracyRate": 80.0,
     "durationSeconds": 680,
     "pointsEarned": 16,
+    "reviewCount": 9,
     "checkedIn": true,
     "streakDays": 5,
     "totalPoints": 128,
@@ -431,6 +589,7 @@ Authorization: Bearer {token}
 说明：
 
 - 今日维度数据来自 `daily_checkin`
+- `reviewCount` 表示当天 `study_mode=WRONG_REVIEW` 的提交次数，来自 `study_record`
 - 累计积分、累计学习数、连续天数来自 `user_points`
 - `pendingReviewCount` 表示当前 `ACTIVE` 状态错题数
 
@@ -444,7 +603,7 @@ Authorization: Bearer {token}
 
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
-| rangeType | string | 当前最小可用实现支持 `WEEK` |
+| rangeType | string | 支持 `WEEK` / `MONTH` / `ALL`；分别表示最近 7 天、最近 30 天、全部历史 |
 
 返回体：
 
@@ -453,14 +612,14 @@ Authorization: Bearer {token}
   "code": 200,
   "message": "success",
   "data": {
-    "rangeType": "WEEK",
-    "startDate": "2026-03-23",
+    "rangeType": "MONTH",
+    "startDate": "2026-02-28",
     "endDate": "2026-03-29",
-    "rangeStudyCount": 48,
-    "rangeCorrectCount": 39,
-    "rangeAccuracyRate": 81.25,
-    "rangeDurationSeconds": 1420,
-    "rangePointsEarned": 39,
+    "rangeStudyCount": 126,
+    "rangeCorrectCount": 101,
+    "rangeAccuracyRate": 80.16,
+    "rangeDurationSeconds": 3860,
+    "rangePointsEarned": 101,
     "totalStudied": 240,
     "totalCorrect": 188,
     "totalAccuracyRate": 78.33,
@@ -471,7 +630,7 @@ Authorization: Bearer {token}
     "totalWrongCount": 11,
     "trend": [
       {
-        "date": "2026-03-23",
+        "date": "2026-02-28",
         "studyCount": 6,
         "correctCount": 5,
         "accuracyRate": 83.33,
@@ -486,8 +645,43 @@ Authorization: Bearer {token}
 说明：
 
 - 区间趋势数据来自 `daily_checkin`
-- `trend` 会补齐最近 7 天缺失日期，未学习日期返回 `0`
+- `WEEK` 返回最近 7 天趋势，`MONTH` 返回最近 30 天趋势
+- `ALL` 返回从首次学习日到今天的按日趋势；若没有历史数据，则返回当天一条全 `0` 数据
+- `trend` 会补齐区间内缺失日期，未学习日期返回 `0`
 - 累计数据来自 `user_points`
+
+## 6.5 获取熟练度分布
+
+- 方法：`GET`
+- 路径：`/api/study/familiarity-distribution`
+- 鉴权：是
+
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "totalCards": 24,
+    "items": [
+      {
+        "familiarityLevel": 0,
+        "count": 5
+      },
+      {
+        "familiarityLevel": 1,
+        "count": 7
+      }
+    ]
+  }
+}
+```
+
+说明：
+
+- 仅统计当前登录用户自己的单词卡
+- 默认返回 `0-5` 全部熟练度档位，没有数据的档位也会返回 `count: 0`
 
 ---
 
@@ -539,34 +733,34 @@ Authorization: Bearer {token}
 - 路径：`/api/checkin/calendar`
 - 鉴权：是
 
-查询参数：
-
-| 参数 | 类型 | 说明 |
-| --- | --- | --- |
-| year | int | 年 |
-| month | int | 月 |
-
-返回体建议：
+返回体（MVP 当前实现，最近 30 天）：
 
 ```json
 {
   "code": 200,
   "message": "success",
   "data": {
-    "year": 2026,
-    "month": 3,
+    "startDate": "2026-02-28",
+    "endDate": "2026-03-29",
     "currentStreakDays": 5,
     "days": [
       {
         "date": "2026-03-29",
-        "checked": true,
+        "checkedIn": true,
         "studyCount": 20,
+        "correctCount": 16,
         "pointsEarned": 18
       }
     ]
   }
 }
 ```
+
+说明：
+
+- 当前实现固定返回最近 `30` 天数据，用于统计页最小可用日历区
+- `days` 会补齐区间内缺失日期，未学习日期返回 `checkedIn: false` 和各统计字段 `0`
+- `currentStreakDays` 来自 `user_points`
 
 ## 8.2 获取今日打卡状态
 
@@ -673,6 +867,51 @@ Authorization: Bearer {token}
 - 方法：`POST`
 - 路径：`/api/admin/public-words/{id}/disable`
 - 鉴权：管理员
+
+## 11.4 公共词库 CSV 批量导入
+
+- 方法：`POST`
+- 路径：`/api/admin/public-words/import/csv`
+- 鉴权：管理员
+- 请求类型：`multipart/form-data`
+
+请求参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| file | file | 是 | CSV 文件 |
+
+CSV 列顺序（前两列必填）：
+
+`word,meaning,phonetic,exampleSentence,levelTag,sourceName,status`
+
+说明：
+
+- 支持首行表头（`word,meaning,...`）
+- `status` 支持 `1/0/true/false`，默认 `1`
+- 文件大小上限 `20MB`
+- 以 `word + levelTag` 作为匹配键：存在则更新，不存在则新增
+
+返回体：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "totalRows": 6,
+    "insertedCount": 4,
+    "updatedCount": 1,
+    "failedCount": 1,
+    "errors": [
+      {
+        "lineNumber": 5,
+        "reason": "word 和 meaning 不能为空"
+      }
+    ]
+  }
+}
+```
 
 ---
 

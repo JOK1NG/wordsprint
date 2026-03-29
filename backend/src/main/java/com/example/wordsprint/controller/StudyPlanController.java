@@ -1,10 +1,10 @@
 package com.example.wordsprint.controller;
 
 import com.example.wordsprint.common.Result;
-import com.example.wordsprint.dto.UserProfileUpdateRequest;
+import com.example.wordsprint.dto.StudyPlanUpdateRequest;
 import com.example.wordsprint.security.CurrentUserProvider;
-import com.example.wordsprint.service.UserService;
-import com.example.wordsprint.vo.UserInfoResponse;
+import com.example.wordsprint.service.StudyPlanService;
+import com.example.wordsprint.vo.StudyPlanVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
@@ -17,19 +17,19 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/user")
-public class UserController {
+@RequestMapping("/api/study-plan")
+public class StudyPlanController {
 
-    private final UserService userService;
+    private final StudyPlanService studyPlanService;
     private final CurrentUserProvider currentUserProvider;
 
-    @GetMapping("/me")
-    public Result<UserInfoResponse> me() {
-        return Result.success(userService.getCurrentUser());
+    @GetMapping
+    public Result<StudyPlanVO> get() {
+        return Result.success(studyPlanService.get(currentUserProvider.getCurrentUserId()));
     }
 
-    @PutMapping("/profile")
-    public Result<UserInfoResponse> updateProfile(@Valid @RequestBody UserProfileUpdateRequest request) {
-        return Result.success(userService.updateProfile(currentUserProvider.getCurrentUserId(), request));
+    @PutMapping
+    public Result<StudyPlanVO> update(@Valid @RequestBody StudyPlanUpdateRequest request) {
+        return Result.success(studyPlanService.update(currentUserProvider.getCurrentUserId(), request));
     }
 }

@@ -3,6 +3,8 @@ package com.example.wordsprint.service;
 import com.example.wordsprint.dto.StudyRandomQuery;
 import com.example.wordsprint.dto.StudyStatisticsQuery;
 import com.example.wordsprint.dto.StudySubmitRequest;
+import com.example.wordsprint.vo.CheckinCalendarVO;
+import com.example.wordsprint.vo.FamiliarityDistributionVO;
 import com.example.wordsprint.vo.StudyRandomResponse;
 import com.example.wordsprint.vo.StudyStatisticsVO;
 import com.example.wordsprint.vo.StudySubmitResponse;
@@ -17,4 +19,8 @@ public interface StudyService {
     StudyTodaySummaryVO todaySummary(Long userId);
 
     StudyStatisticsVO statistics(Long userId, StudyStatisticsQuery query);
+
+    FamiliarityDistributionVO familiarityDistribution(Long userId);
+
+    CheckinCalendarVO calendar(Long userId);
 }

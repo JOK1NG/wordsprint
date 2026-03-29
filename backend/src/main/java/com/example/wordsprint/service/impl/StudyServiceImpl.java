@@ -18,6 +18,10 @@ import com.example.wordsprint.mapper.WrongWordMapper;
 import com.example.wordsprint.mapper.WordCardMapper;
 import com.example.wordsprint.service.StudyService;
 import com.example.wordsprint.service.RedisRankService;
+import com.example.wordsprint.vo.CheckinCalendarDayVO;
+import com.example.wordsprint.vo.CheckinCalendarVO;
+import com.example.wordsprint.vo.FamiliarityDistributionItemVO;
+import com.example.wordsprint.vo.FamiliarityDistributionVO;
 import com.example.wordsprint.vo.StudyQuestionVO;
 import com.example.wordsprint.vo.StudyRandomResponse;
 import com.example.wordsprint.vo.StudyStatisticsPointVO;
@@ -65,8 +69,11 @@ public class StudyServiceImpl implements StudyService {
     private static final int RESOLVED_STREAK_THRESHOLD = 3;
     private static final int RANDOM_POOL_LIMIT = 200;
     private static final int CHOICE_OPTION_COUNT = 4;
+    private static final int CALENDAR_DAYS = 30;
     private static final Duration SUBMIT_LOCK_TTL = Duration.ofSeconds(3);
     private static final String RANGE_TYPE_WEEK = "WEEK";
+    private static final String RANGE_TYPE_MONTH = "MONTH";
+    private static final String RANGE_TYPE_ALL = "ALL";
 
     private final WordCardMapper wordCardMapper;
     private final StudyRecordMapper studyRecordMapper;
@@ -127,6 +134,8 @@ public class StudyServiceImpl implements StudyService {
     @Override
     public StudyTodaySummaryVO todaySummary(Long userId) {
         LocalDate today = LocalDate.now();
+        LocalDateTime dayStart = today.atStartOfDay();
+        LocalDateTime nextDayStart = today.plusDays(1).atStartOfDay();
         DailyCheckin todayCheckin = getDailyCheckin(userId, today);
         UserPoints userPoints = getUserPoints(userId);
 
@@ -137,6 +146,7 @@ public class StudyServiceImpl implements StudyService {
         response.setAccuracyRate(calculateRate(response.getCorrectCount(), response.getStudyCount()));
         response.setDurationSeconds(todayCheckin == null ? 0 : nullSafe(todayCheckin.getTotalDurationSeconds()));
         response.setPointsEarned(todayCheckin == null ? 0 : nullSafe(todayCheckin.getPointsEarned()));
+        response.setReviewCount(countTodayReviewRecords(userId, dayStart, nextDayStart));
         response.setCheckedIn(todayCheckin != null && response.getStudyCount() > 0);
         response.setStreakDays(resolveCurrentStreakDays(userPoints));
         response.setTotalPoints(userPoints == null ? 0 : nullSafe(userPoints.getTotalPoints()));
@@ -146,19 +156,33 @@ public class StudyServiceImpl implements StudyService {
         return response;
     }
 
+    private Integer countTodayReviewRecords(Long userId, LocalDateTime dayStart, LocalDateTime nextDayStart) {
+        Long count = studyRecordMapper.selectCount(new LambdaQueryWrapper<StudyRecord>()
+                .eq(StudyRecord::getUserId, userId)
+                .eq(StudyRecord::getStudyMode, MODE_WRONG_REVIEW)
+                .ge(StudyRecord::getStudiedAt, dayStart)
+                .lt(StudyRecord::getStudiedAt, nextDayStart));
+        return count == null ? 0 : count.intValue();
+    }
+
     @Override
     public StudyStatisticsVO statistics(Long userId, StudyStatisticsQuery query) {
         String rangeType = normalizeRangeType(query.getRangeType());
-        if (!RANGE_TYPE_WEEK.equals(rangeType)) {
+        if (!RANGE_TYPE_WEEK.equals(rangeType)
+                && !RANGE_TYPE_MONTH.equals(rangeType)
+                && !RANGE_TYPE_ALL.equals(rangeType)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "统计范围不合法");
         }
 
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(6);
-        List<DailyCheckin> checkins = dailyCheckinMapper.selectList(new LambdaQueryWrapper<DailyCheckin>()
+        LocalDate startDate = resolveStatisticsStartDate(userId, rangeType, endDate);
+        LambdaQueryWrapper<DailyCheckin> checkinQuery = new LambdaQueryWrapper<DailyCheckin>()
                 .eq(DailyCheckin::getUserId, userId)
-                .between(DailyCheckin::getCheckinDate, startDate, endDate)
-                .orderByAsc(DailyCheckin::getCheckinDate));
+                .orderByAsc(DailyCheckin::getCheckinDate);
+        if (!RANGE_TYPE_ALL.equals(rangeType)) {
+            checkinQuery.between(DailyCheckin::getCheckinDate, startDate, endDate);
+        }
+        List<DailyCheckin> checkins = dailyCheckinMapper.selectList(checkinQuery);
         Map<LocalDate, DailyCheckin> checkinMap = checkins.stream()
                 .collect(Collectors.toMap(DailyCheckin::getCheckinDate, checkin -> checkin));
 
@@ -214,6 +238,75 @@ public class StudyServiceImpl implements StudyService {
         response.setTotalWrongCount(countWrongWords(userId, null));
         response.setTrend(trend);
         return response;
+    }
+
+    @Override
+    public FamiliarityDistributionVO familiarityDistribution(Long userId) {
+        List<WordCard> cards = wordCardMapper.selectList(new LambdaQueryWrapper<WordCard>()
+                .eq(WordCard::getUserId, userId));
+        Map<Integer, Long> countMap = cards.stream()
+                .collect(Collectors.groupingBy(card -> clampFamiliarity(card.getFamiliarityLevel() == null ? 0 : card.getFamiliarityLevel()), Collectors.counting()));
+
+        List<FamiliarityDistributionItemVO> items = new ArrayList<>();
+        for (int level = 0; level <= MAX_FAMILIARITY; level++) {
+            FamiliarityDistributionItemVO item = new FamiliarityDistributionItemVO();
+            item.setFamiliarityLevel(level);
+            item.setCount(countMap.getOrDefault(level, 0L).intValue());
+            items.add(item);
+        }
+
+        FamiliarityDistributionVO response = new FamiliarityDistributionVO();
+        response.setTotalCards(cards.size());
+        response.setItems(items);
+        return response;
+    }
+
+    @Override
+    public CheckinCalendarVO calendar(Long userId) {
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(CALENDAR_DAYS - 1L);
+        List<DailyCheckin> checkins = dailyCheckinMapper.selectList(new LambdaQueryWrapper<DailyCheckin>()
+                .eq(DailyCheckin::getUserId, userId)
+                .between(DailyCheckin::getCheckinDate, startDate, endDate)
+                .orderByAsc(DailyCheckin::getCheckinDate));
+        Map<LocalDate, DailyCheckin> checkinMap = checkins.stream()
+                .collect(Collectors.toMap(DailyCheckin::getCheckinDate, checkin -> checkin));
+
+        List<CheckinCalendarDayVO> days = new ArrayList<>();
+        for (int i = 0; i < CALENDAR_DAYS; i++) {
+            LocalDate currentDate = startDate.plusDays(i);
+            DailyCheckin checkin = checkinMap.get(currentDate);
+
+            CheckinCalendarDayVO day = new CheckinCalendarDayVO();
+            day.setDate(currentDate);
+            day.setCheckedIn(checkin != null && nullSafe(checkin.getStudyCount()) > 0);
+            day.setStudyCount(checkin == null ? 0 : nullSafe(checkin.getStudyCount()));
+            day.setCorrectCount(checkin == null ? 0 : nullSafe(checkin.getCorrectCount()));
+            day.setPointsEarned(checkin == null ? 0 : nullSafe(checkin.getPointsEarned()));
+            days.add(day);
+        }
+
+        CheckinCalendarVO response = new CheckinCalendarVO();
+        response.setStartDate(startDate);
+        response.setEndDate(endDate);
+        response.setCurrentStreakDays(resolveCurrentStreakDays(getUserPoints(userId)));
+        response.setDays(days);
+        return response;
+    }
+
+    private LocalDate resolveStatisticsStartDate(Long userId, String rangeType, LocalDate endDate) {
+        if (RANGE_TYPE_WEEK.equals(rangeType)) {
+            return endDate.minusDays(6);
+        }
+        if (RANGE_TYPE_MONTH.equals(rangeType)) {
+            return endDate.minusDays(29);
+        }
+
+        DailyCheckin firstCheckin = dailyCheckinMapper.selectOne(new LambdaQueryWrapper<DailyCheckin>()
+                .eq(DailyCheckin::getUserId, userId)
+                .orderByAsc(DailyCheckin::getCheckinDate)
+                .last("LIMIT 1"));
+        return firstCheckin == null ? endDate : firstCheckin.getCheckinDate();
     }
 
     private List<WordCard> fetchRandomCards(Long userId, String mode, int size) {

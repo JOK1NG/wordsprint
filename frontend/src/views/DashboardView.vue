@@ -9,6 +9,7 @@
       <div class="page-actions">
         <el-button type="primary" @click="goToStudy">开始学习</el-button>
         <el-button @click="goToWrongWords">错题复习</el-button>
+        <el-button @click="goToStatistics">查看统计</el-button>
       </div>
     </div>
 
@@ -80,6 +81,41 @@
           <span class="today-item-label">今日积分</span>
           <span class="today-item-value">{{ todayPointsText }}</span>
         </div>
+        <div class="today-item">
+          <span class="today-item-label">今日复习数</span>
+          <span class="today-item-value">{{ todayReviewCount }}</span>
+        </div>
+        <div class="today-item">
+          <span class="today-item-label">今日学习目标</span>
+          <span class="today-item-value">{{ dailyTargetText }}</span>
+        </div>
+        <div class="today-item">
+          <span class="today-item-label">今日复习目标</span>
+          <span class="today-item-value">{{ reviewTargetText }}</span>
+        </div>
+      </div>
+
+      <div v-if="todaySummary" class="goal-progress">
+        <div class="goal-progress-block">
+          <div class="goal-progress-head">
+            <span>学习目标达成进度</span>
+            <span>{{ goalProgressText }}</span>
+          </div>
+          <el-progress :percentage="goalProgressPercent ?? 0" :status="goalProgressPercent === 100 ? 'success' : undefined" />
+          <div class="goal-progress-hint">{{ goalProgressHint }}</div>
+        </div>
+
+        <div class="goal-progress-block">
+          <div class="goal-progress-head">
+            <span>复习目标达成进度</span>
+            <span>{{ reviewGoalProgressText }}</span>
+          </div>
+          <el-progress :percentage="reviewGoalProgressPercent ?? 0" :status="reviewGoalProgressPercent === 100 ? 'success' : undefined" />
+          <div class="goal-progress-hint">{{ reviewGoalProgressHint }}</div>
+          <div v-if="hasPendingWrongWords" class="goal-progress-actions">
+            <el-button text type="primary" @click="goToWrongWords">去错题复习</el-button>
+          </div>
+        </div>
       </div>
     </el-card>
   </section>
@@ -90,6 +126,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { getPointsRank, getStreakRank } from '../api/rank'
+import { getStudyPlan } from '../api/studyPlan'
 import { getStudyStatistics, getTodayStudySummary } from '../api/study'
 import { useUserStore } from '../stores/user'
 
@@ -102,6 +139,7 @@ const todaySummary = ref(null)
 const statistics = ref(null)
 const currentPoints = ref(null)
 const currentStreak = ref(null)
+const studyPlan = ref(null)
 
 const welcomeText = computed(() => {
   const displayName = userStore.userInfo?.nickname || userStore.userInfo?.username
@@ -196,6 +234,7 @@ const todayCheckinText = computed(() => {
 })
 const todayDurationText = computed(() => formatDuration(todaySummary.value?.durationSeconds))
 const todayPointsText = computed(() => formatMetricValue(todaySummary.value?.pointsEarned))
+const todayReviewCount = computed(() => formatMetricValue(todaySummary.value?.reviewCount))
 const pendingReviewCount = computed(() => {
   if (typeof todaySummary.value?.pendingReviewCount === 'number') {
     return todaySummary.value.pendingReviewCount
@@ -206,6 +245,98 @@ const pendingReviewCount = computed(() => {
   }
 
   return null
+})
+
+const hasPendingWrongWords = computed(() => {
+  return typeof pendingReviewCount.value === 'number' && pendingReviewCount.value > 0
+})
+
+const todayStudyCountNumber = computed(() => {
+  return typeof todaySummary.value?.studyCount === 'number' ? todaySummary.value.studyCount : null
+})
+
+const todayReviewCountNumber = computed(() => {
+  return typeof todaySummary.value?.reviewCount === 'number' ? todaySummary.value.reviewCount : null
+})
+
+const dailyTargetCount = computed(() => {
+  return typeof studyPlan.value?.dailyTargetCount === 'number' ? studyPlan.value.dailyTargetCount : null
+})
+
+const reviewTargetCount = computed(() => {
+  return typeof studyPlan.value?.reviewTargetCount === 'number' ? studyPlan.value.reviewTargetCount : null
+})
+
+const dailyTargetText = computed(() => {
+  if (dailyTargetCount.value === null) {
+    return '--'
+  }
+
+  return `${dailyTargetCount.value} 题`
+})
+
+const reviewTargetText = computed(() => {
+  if (reviewTargetCount.value === null) {
+    return '--'
+  }
+
+  return `${reviewTargetCount.value} 题`
+})
+
+const goalProgressPercent = computed(() => {
+  if (dailyTargetCount.value === null || dailyTargetCount.value <= 0 || todayStudyCountNumber.value === null) {
+    return null
+  }
+
+  return Math.min(100, Math.round((todayStudyCountNumber.value / dailyTargetCount.value) * 100))
+})
+
+const goalProgressText = computed(() => {
+  if (dailyTargetCount.value === null || todayStudyCountNumber.value === null) {
+    return '--'
+  }
+
+  return `${todayStudyCountNumber.value} / ${dailyTargetCount.value}`
+})
+
+const goalProgressHint = computed(() => {
+  if (dailyTargetCount.value === null || todayStudyCountNumber.value === null) {
+    return '学习计划未配置，去个人中心设置目标后即可展示达成进度。'
+  }
+
+  if (todayStudyCountNumber.value >= dailyTargetCount.value) {
+    return '今日学习目标已达成，继续练习可拉开排行榜差距。'
+  }
+
+  return `还差 ${dailyTargetCount.value - todayStudyCountNumber.value} 题可达成今日目标。`
+})
+
+const reviewGoalProgressPercent = computed(() => {
+  if (reviewTargetCount.value === null || reviewTargetCount.value <= 0 || todayReviewCountNumber.value === null) {
+    return null
+  }
+
+  return Math.min(100, Math.round((todayReviewCountNumber.value / reviewTargetCount.value) * 100))
+})
+
+const reviewGoalProgressText = computed(() => {
+  if (reviewTargetCount.value === null || todayReviewCountNumber.value === null) {
+    return '--'
+  }
+
+  return `${todayReviewCountNumber.value} / ${reviewTargetCount.value}`
+})
+
+const reviewGoalProgressHint = computed(() => {
+  if (reviewTargetCount.value === null || todayReviewCountNumber.value === null) {
+    return '学习计划未配置，去个人中心设置目标后即可展示达成进度。'
+  }
+
+  if (todayReviewCountNumber.value >= reviewTargetCount.value) {
+    return '今日复习目标已达成，记忆巩固状态良好。'
+  }
+
+  return `还差 ${reviewTargetCount.value - todayReviewCountNumber.value} 题可达成今日复习目标。`
 })
 
 const summaryCards = computed(() => [
@@ -234,6 +365,16 @@ const summaryCards = computed(() => [
     value: formatMetricValue(pendingReviewCount.value),
     hint: '来自学习统计接口',
   },
+  {
+    title: '学习目标达成',
+    value: goalProgressText.value,
+    hint: goalProgressPercent.value === null ? '学习计划暂不可用' : `今日进度 ${goalProgressPercent.value}%`,
+  },
+  {
+    title: '复习目标达成',
+    value: reviewGoalProgressText.value,
+    hint: reviewGoalProgressPercent.value === null ? '学习计划暂不可用' : `今日进度 ${reviewGoalProgressPercent.value}%`,
+  },
 ])
 
 const trendItems = computed(() => normalizeTrendItems(statistics.value))
@@ -246,16 +387,21 @@ const goToWrongWords = () => {
   router.push('/wrong-words')
 }
 
+const goToStatistics = () => {
+  router.push('/statistics')
+}
+
 const loadDashboard = async () => {
   loading.value = true
   errorText.value = ''
 
   const errors = []
-  const [todayResult, statisticsResult, pointsResult, streakResult] = await Promise.allSettled([
+  const [todayResult, statisticsResult, pointsResult, streakResult, studyPlanResult] = await Promise.allSettled([
     getTodayStudySummary(),
     getStudyStatistics({ rangeType: 'WEEK' }),
     getPointsRank(20),
     getStreakRank(20),
+    getStudyPlan(),
   ])
 
   try {
@@ -302,6 +448,17 @@ const loadDashboard = async () => {
   } catch (error) {
     currentStreak.value = statistics.value?.streakDays ?? null
     errors.push(error?.message || '连续学习天数加载失败')
+  }
+
+  try {
+    if (studyPlanResult.status === 'fulfilled') {
+      studyPlan.value = unwrapResponse(studyPlanResult.value, '获取学习计划失败')
+    } else {
+      throw studyPlanResult.reason
+    }
+  } catch (error) {
+    studyPlan.value = null
+    errors.push(error?.message || '学习计划加载失败')
   }
 
   if (errors.length > 0) {
@@ -415,6 +572,39 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
+}
+
+.goal-progress {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+  background: #ffffff;
+}
+
+.goal-progress-block + .goal-progress-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.goal-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #303133;
+}
+
+.goal-progress-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.goal-progress-actions {
+  margin-top: 4px;
 }
 
 .today-item {

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import { getCurrentUser, login as loginApi, logout as logoutApi } from '../api/auth'
+import { getCurrentUser, login as loginApi, logout as logoutApi, updateUserProfile as updateUserProfileApi } from '../api/auth'
 import { clearToken, getToken, setToken } from '../utils/token'
 
 export const useUserStore = defineStore('user', {
@@ -48,6 +48,16 @@ export const useUserStore = defineStore('user', {
         this.clearAuth()
         throw error
       }
+    },
+    async updateProfile(profile) {
+      const response = await updateUserProfileApi(profile)
+      const nextUserInfo = {
+        ...(this.userInfo ?? {}),
+        ...(response?.data ?? profile),
+      }
+
+      this.setUserInfo(nextUserInfo)
+      return nextUserInfo
     },
     async logout() {
       try {

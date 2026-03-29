@@ -19,6 +19,8 @@ public class StudyTodaySummaryVO {
 
     private Integer pointsEarned;
 
+    private Integer reviewCount;
+
     private Boolean checkedIn;
 
     private Integer streakDays;
