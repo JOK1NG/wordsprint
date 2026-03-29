@@ -6,6 +6,8 @@
         <router-link to="/">学习仪表盘</router-link>
         <router-link to="/word-cards">我的单词卡</router-link>
         <router-link to="/study">学习训练</router-link>
+        <router-link to="/wrong-words">错题本</router-link>
+        <router-link to="/rank">🏆 排行榜</router-link>
       </nav>
     </aside>
     <main class="app-main">

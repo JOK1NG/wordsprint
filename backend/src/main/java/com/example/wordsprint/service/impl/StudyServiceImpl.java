@@ -16,6 +16,7 @@ import com.example.wordsprint.mapper.UserPointsMapper;
 import com.example.wordsprint.mapper.WrongWordMapper;
 import com.example.wordsprint.mapper.WordCardMapper;
 import com.example.wordsprint.service.StudyService;
+import com.example.wordsprint.service.RedisRankService;
 import com.example.wordsprint.vo.StudyQuestionVO;
 import com.example.wordsprint.vo.StudyRandomResponse;
 import com.example.wordsprint.vo.StudySubmitResponse;
@@ -67,6 +68,7 @@ public class StudyServiceImpl implements StudyService {
     private final DailyCheckinMapper dailyCheckinMapper;
     private final UserPointsMapper userPointsMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final RedisRankService redisRankService;
 
     @Override
     public StudyRandomResponse random(Long userId, StudyRandomQuery query) {
@@ -366,6 +368,10 @@ public class StudyServiceImpl implements StudyService {
         userPoints.setLastCheckinDate(today);
 
         userPointsMapper.updateById(userPoints);
+
+        // 同步更新 Redis 排行榜
+        redisRankService.updateUserPoints(userId, userPoints.getTotalPoints());
+        redisRankService.updateUserStreak(userId, userPoints.getStreakDays());
     }
 
     private WrongWord getWrongWord(Long userId, Long wordCardId) {

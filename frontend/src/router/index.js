@@ -56,6 +56,16 @@ const router = createRouter({
           name: 'studyTraining',
           component: StudyTrainingView,
         },
+        {
+          path: 'wrong-words',
+          name: 'wrongWordList',
+          component: () => import('../views/wrongword/WrongWordListView.vue'),
+        },
+        {
+          path: 'rank',
+          name: 'rank',
+          component: () => import('../views/rank/RankView.vue'),
+        },
       ],
     },
   ],
