@@ -115,7 +115,8 @@ public class PublicWordServiceImpl implements PublicWordService {
         wordCard.setIsDeleted(0);
         wordCardMapper.insert(wordCard);
 
-        log.info("公共词库导入到个人词库: userId={}, publicWordId={}, wordCardId={}, word={}", userId, publicWordId, wordCard.getId(), publicWord.getWord());
+        log.info("公共词库导入到个人词库: userId={}, publicWordId={}, wordCardId={}, word={}", userId, publicWordId,
+                wordCard.getId(), publicWord.getWord());
         PublicWordImportResultVO result = new PublicWordImportResultVO();
         result.setImported(true);
         result.setWordCardId(wordCard.getId());
@@ -123,6 +124,7 @@ public class PublicWordServiceImpl implements PublicWordService {
         return result;
     }
 
+    @SuppressWarnings("null")
     @Override
     @Transactional
     public PublicWordCsvImportResultVO importCsv(MultipartFile file) {
@@ -145,7 +147,8 @@ public class PublicWordServiceImpl implements PublicWordService {
         Map<String, PendingPublicWordWrite> pendingInsertMap = new LinkedHashMap<>();
         Map<String, PendingPublicWordWrite> pendingUpdateMap = new LinkedHashMap<>();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             int lineNumber = 0;
             boolean firstDataRowHandled = false;
@@ -224,11 +227,13 @@ public class PublicWordServiceImpl implements PublicWordService {
         result.setUpdatedCount(updatedCount);
         result.setFailedCount(totalRows - insertedCount - updatedCount);
         result.setErrors(errors);
-        log.info("管理员公共词库CSV导入: total={}, inserted={}, updated={}, failed={}", totalRows, insertedCount, updatedCount, totalRows - insertedCount - updatedCount);
+        log.info("管理员公共词库CSV导入: total={}, inserted={}, updated={}, failed={}", totalRows, insertedCount, updatedCount,
+                totalRows - insertedCount - updatedCount);
         return result;
     }
 
-    private int persistPendingInsertWrites(List<PendingPublicWordWrite> writes, List<PublicWordCsvImportErrorVO> errors) {
+    private int persistPendingInsertWrites(List<PendingPublicWordWrite> writes,
+            List<PublicWordCsvImportErrorVO> errors) {
         if (writes.isEmpty()) {
             return 0;
         }
@@ -251,7 +256,8 @@ public class PublicWordServiceImpl implements PublicWordService {
         return success;
     }
 
-    private int persistPendingUpdateWrites(List<PendingPublicWordWrite> writes, List<PublicWordCsvImportErrorVO> errors) {
+    private int persistPendingUpdateWrites(List<PendingPublicWordWrite> writes,
+            List<PublicWordCsvImportErrorVO> errors) {
         if (writes.isEmpty()) {
             return 0;
         }
@@ -274,7 +280,8 @@ public class PublicWordServiceImpl implements PublicWordService {
         return success;
     }
 
-    private int persistInsertWritesOneByOne(List<PendingPublicWordWrite> writes, List<PublicWordCsvImportErrorVO> errors) {
+    private int persistInsertWritesOneByOne(List<PendingPublicWordWrite> writes,
+            List<PublicWordCsvImportErrorVO> errors) {
         int success = 0;
         for (PendingPublicWordWrite write : writes) {
             try {
@@ -289,7 +296,8 @@ public class PublicWordServiceImpl implements PublicWordService {
         return success;
     }
 
-    private int persistUpdateWritesOneByOne(List<PendingPublicWordWrite> writes, List<PublicWordCsvImportErrorVO> errors) {
+    private int persistUpdateWritesOneByOne(List<PendingPublicWordWrite> writes,
+            List<PublicWordCsvImportErrorVO> errors) {
         int success = 0;
         for (PendingPublicWordWrite write : writes) {
             try {
@@ -326,7 +334,7 @@ public class PublicWordServiceImpl implements PublicWordService {
             args[argIndex++] = entity.getStatus();
         }
 
-        jdbcTemplate.update(sql.toString(), args);
+        jdbcTemplate.update(java.util.Objects.requireNonNull(sql.toString()), args);
     }
 
     private void batchUpdatePublicWordsChunk(List<PendingPublicWordWrite> chunk) {
@@ -336,7 +344,7 @@ public class PublicWordServiceImpl implements PublicWordService {
         List<Object[]> batchArgs = new ArrayList<>(chunk.size());
         for (PendingPublicWordWrite write : chunk) {
             PublicWordLibrary entity = write.entity;
-            batchArgs.add(new Object[]{
+            batchArgs.add(new Object[] {
                     entity.getWord(),
                     entity.getPhonetic(),
                     entity.getMeaning(),

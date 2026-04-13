@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null")
 public class StudyServiceImpl implements StudyService {
 
     private static final String MODE_WORD_TO_MEANING = "WORD_TO_MEANING";
@@ -352,7 +353,7 @@ public class StudyServiceImpl implements StudyService {
             return pool.subList(0, Math.min(size, pool.size()));
         }
 
-        List<WordCard> cards = wordCardMapper.selectBatchIds(cardIds);
+        List<WordCard> cards = wordCardMapper.selectByIds(cardIds);
         Map<Long, WordCard> cardMap = cards.stream()
                 .collect(Collectors.toMap(WordCard::getId, card -> card));
         List<WordCard> result = new ArrayList<>();

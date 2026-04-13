@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("null")
 public class RedisRankServiceImpl implements RedisRankService {
 
     private static final String KEY_PREFIX = "wordsprint:rank:";
@@ -86,7 +87,7 @@ public class RedisRankServiceImpl implements RedisRankService {
             }
         }
 
-        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+        Map<Long, User> userMap = userMapper.selectByIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
 
         List<RankItemVO> result = new ArrayList<>();
@@ -105,7 +106,7 @@ public class RedisRankServiceImpl implements RedisRankService {
             RankItemVO item = new RankItemVO();
             item.setUserId(userId);
             item.setNickname(user != null ? user.getNickname() : null);
-            item.setScore(score.intValue());
+            item.setScore(score != null ? score.intValue() : 0);
             item.setRank((int) rank++);
             result.add(item);
         }
