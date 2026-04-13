@@ -11,7 +11,7 @@
       </el-button>
     </div>
 
-    <el-card shadow="never" class="form-card">
+    <el-card shadow="never" class="form-card" v-loading="detailLoading">
       <el-form
         ref="formRef"
         :model="formData"
@@ -106,11 +106,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { createWordCard, updateWordCard, getWordCardDetail } from '../../api/wordCard'
+import { extractErrorMessage } from '../../utils/error'
 
 const route = useRoute()
 const router = useRouter()
 const formRef = ref(null)
 const submitting = ref(false)
+const detailLoading = ref(false)
 
 const isEdit = computed(() => !!route.params.id)
 const wordCardId = computed(() => route.params.id)
@@ -140,6 +142,7 @@ const formRules = {
 
 const loadDetail = async () => {
   if (!isEdit.value) return
+  detailLoading.value = true
   try {
     const res = await getWordCardDetail(wordCardId.value)
     if (res.code === 200 && res.data) {
@@ -158,17 +161,20 @@ const loadDetail = async () => {
         }
       }
     } else {
-      ElMessage.error('获取单词卡详情失败')
+      ElMessage.error(extractErrorMessage({ response: { data: res } }, '获取单词卡详情失败'))
       router.push('/word-cards')
     }
   } catch (error) {
-    ElMessage.error('获取单词卡详情失败')
+    ElMessage.error(extractErrorMessage(error, '获取单词卡详情失败'))
     router.push('/word-cards')
+  } finally {
+    detailLoading.value = false
   }
 }
 
 const handleSubmit = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
+  if (submitting.value) return
+  const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
 
   submitting.value = true
@@ -191,7 +197,7 @@ const handleSubmit = async () => {
       ElMessage.error(res.message || (isEdit.value ? '修改失败' : '创建失败'))
     }
   } catch (error) {
-    ElMessage.error(isEdit.value ? '修改失败' : '创建失败')
+    ElMessage.error(extractErrorMessage(error, isEdit.value ? '修改失败' : '创建失败'))
   } finally {
     submitting.value = false
   }

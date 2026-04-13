@@ -149,7 +149,7 @@ const loadRankData = async () => {
     if (res.code === 200) {
       rankList.value = res.data?.list || []
       // 包装 myRank 为对象格式，兼容后端返回
-      if (res.data?.myRank && res.data.myScore !== undefined) {
+      if (res.data?.myRank !== undefined && res.data.myScore !== undefined) {
         myRank.value = {
           rank: res.data.myRank,
           score: res.data.myScore,

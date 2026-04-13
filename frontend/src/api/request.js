@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import { clearToken, getToken } from '../utils/token'
+import router from '../router'
 
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -22,8 +23,7 @@ request.interceptors.response.use(
       clearToken()
       if (window.location.pathname !== '/login') {
         const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
-        const loginUrl = redirect && redirect !== '/' ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
-        window.location.href = loginUrl
+        router.replace(redirect && redirect !== '/' ? { name: 'login', query: { redirect } } : { name: 'login' })
       }
     }
     return Promise.reject(error)

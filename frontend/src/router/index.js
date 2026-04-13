@@ -82,6 +82,11 @@ const router = createRouter({
           name: 'profile',
           component: ProfileView,
         },
+        {
+          path: '/:pathMatch(.*)*',
+          name: 'notFound',
+          redirect: { name: 'dashboard' },
+        },
       ],
     },
   ],

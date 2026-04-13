@@ -126,17 +126,25 @@
             <div class="summary-value">{{ accuracyText }}</div>
           </div>
         </div>
+        <div class="summary-actions">
+          <el-button type="primary" @click="startTraining">再来一轮</el-button>
+          <el-button @click="router.push('/')">返回仪表盘</el-button>
+        </div>
       </el-card>
     </template>
   </section>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { getStudyRandom, submitStudyAnswer } from '../../api/study'
 import { extractErrorMessage } from '../../utils/error'
+
+const route = useRoute()
+const router = useRouter()
 
 const studyMode = ref('WORD_TO_MEANING')
 const questionSize = ref(10)
@@ -185,14 +193,17 @@ const questionTitle = computed(() => {
   return currentQuestion.value.word || currentQuestion.value.meaning || '题目加载中'
 })
 
-const accuracyText = computed(() => {
-  if (sessionStats.answered === 0) {
-    return '0%'
-  }
-  return `${Math.round((sessionStats.correct / sessionStats.answered) * 100)}%`
-})
+const accuracyText = computed(() => (sessionStats.answered === 0 ? '0%' : `${Math.round((sessionStats.correct / sessionStats.answered) * 100)}%`))
 
 const feedbackTitle = computed(() => (feedback.value?.isCorrect ? '回答正确' : '回答错误'))
+
+onMounted(() => {
+  const mode = route.query.mode
+  if (mode && ['WORD_TO_MEANING', 'MEANING_TO_WORD', 'CHOICE', 'WRONG_REVIEW'].includes(mode)) {
+    studyMode.value = mode
+    startTraining()
+  }
+})
 
 const resetSessionData = () => {
   sessionStats.answered = 0
@@ -368,6 +379,12 @@ const nextQuestion = () => {
   color: #111827;
   font-size: 26px;
   font-weight: 700;
+}
+
+.summary-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
 }
 
 @media (max-width: 900px) {

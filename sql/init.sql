@@ -133,13 +133,19 @@ CREATE TABLE IF NOT EXISTS public_word_library (
 ) COMMENT='公共词库表';
 
 INSERT INTO user (username, password, nickname, role)
-VALUES ('demo', '$2a$10$replace_with_bcrypt_hash', 'DemoUser', 'USER');
+VALUES
+('demo', '$2a$10$Js6UIK15PHTPe13s0kULsuaTU209Urj/qb6GVXEbMBmr5c0BUfpXi', 'DemoUser', 'USER'),
+('admin', '$2a$10$Js6UIK15PHTPe13s0kULsuaTU209Urj/qb6GVXEbMBmr5c0BUfpXi', 'Admin', 'ADMIN');
 
 INSERT INTO study_plan (user_id, daily_target_count, review_target_count)
-VALUES (1, 20, 10);
+VALUES
+(1, 20, 10),
+(2, 15, 5);
 
 INSERT INTO user_points (user_id, total_points, streak_days, max_streak_days)
-VALUES (1, 0, 0, 0);
+VALUES
+(1, 0, 0, 0),
+(2, 0, 0, 0);
 
 INSERT INTO word_card (user_id, word, phonetic, meaning, example_sentence, tags)
 VALUES

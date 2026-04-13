@@ -14,6 +14,7 @@ import com.example.wordsprint.service.AuthService;
 import com.example.wordsprint.vo.LoginResponse;
 import com.example.wordsprint.vo.RegisterResponse;
 import com.example.wordsprint.vo.UserInfoResponse;
+import com.example.wordsprint.service.RedisRankService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +28,18 @@ public class AuthServiceImpl implements AuthService {
     private final UserPointsMapper userPointsMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RedisRankService redisRankService;
 
     public AuthServiceImpl(UserMapper userMapper,
                            UserPointsMapper userPointsMapper,
                            PasswordEncoder passwordEncoder,
-                           JwtTokenProvider jwtTokenProvider) {
+                           JwtTokenProvider jwtTokenProvider,
+                           RedisRankService redisRankService) {
         this.userMapper = userMapper;
         this.userPointsMapper = userPointsMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.redisRankService = redisRankService;
     }
 
     @Override
@@ -67,6 +71,9 @@ public class AuthServiceImpl implements AuthService {
         userPoints.setTotalCorrect(0);
         userPoints.setTotalDurationSeconds(0);
         userPointsMapper.insert(userPoints);
+
+        redisRankService.updateUserPoints(user.getId(), 0);
+        redisRankService.updateUserStreak(user.getId(), 0);
 
         return new RegisterResponse(user.getId(), user.getUsername());
     }

@@ -35,7 +35,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useUserStore } from '../stores/user'
 
@@ -90,8 +90,20 @@ const topbarTitle = computed(() => routeMetaMap[route.name]?.title || routeMetaM
 const topbarSubtitle = computed(() => routeMetaMap[route.name]?.subtitle || routeMetaMap.dashboard.subtitle)
 
 async function handleLogout() {
-  await userStore.logout()
-  ElMessage.success('已退出登录')
-  router.replace('/login')
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '退出确认', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await userStore.logout()
+  } finally {
+    ElMessage.success('已退出登录')
+    router.replace('/login')
+  }
 }
 </script>

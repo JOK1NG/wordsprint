@@ -343,7 +343,7 @@ const summaryCards = computed(() => [
   {
     title: '今日学习数',
     value: todayStudyCount.value,
-    hint: todaySummary.value ? '来自 /api/study/today-summary' : '今日摘要未返回',
+    hint: todaySummary.value ? '今日学习数据汇总' : '今日摘要暂不可用',
   },
   {
     title: '今日正确数',
@@ -353,17 +353,17 @@ const summaryCards = computed(() => [
   {
     title: '连续学习天数',
     value: formatMetricValue(currentStreak.value),
-    hint: statistics.value?.streakDays != null ? '优先使用统计接口' : '回退到连续打卡榜数据',
+    hint: '已累计连续学习天数',
   },
   {
     title: '当前积分',
     value: formatMetricValue(currentPoints.value),
-    hint: '来自积分榜 myScore',
+    hint: '你的当前总积分',
   },
   {
     title: '待复习数量',
     value: formatMetricValue(pendingReviewCount.value),
-    hint: '来自学习统计接口',
+    hint: '当前活跃错题数量',
   },
   {
     title: '学习目标达成',

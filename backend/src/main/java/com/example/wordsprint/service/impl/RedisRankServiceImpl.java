@@ -6,16 +6,21 @@ import com.example.wordsprint.mapper.UserMapper;
 import com.example.wordsprint.mapper.UserPointsMapper;
 import com.example.wordsprint.service.RedisRankService;
 import com.example.wordsprint.vo.RankItemVO;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RedisRankServiceImpl implements RedisRankService {
@@ -27,6 +32,16 @@ public class RedisRankServiceImpl implements RedisRankService {
     private final StringRedisTemplate stringRedisTemplate;
     private final UserMapper userMapper;
     private final UserPointsMapper userPointsMapper;
+
+    @PostConstruct
+    public void initRankCache() {
+        try {
+            refreshRankFromDb();
+            log.info("排行榜缓存已从数据库加载");
+        } catch (Exception e) {
+            log.warn("启动时加载排行榜缓存失败，将在首次答题时逐步重建: {}", e.getMessage());
+        }
+    }
 
     @Override
     public void updateUserPoints(Long userId, Integer points) {
@@ -64,6 +79,16 @@ public class RedisRankServiceImpl implements RedisRankService {
             return new ArrayList<>();
         }
 
+        List<Long> userIds = new ArrayList<>();
+        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+            if (tuple.getValue() != null) {
+                userIds.add(Long.valueOf(tuple.getValue()));
+            }
+        }
+
+        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
         List<RankItemVO> result = new ArrayList<>();
         long rank = 1;
         for (ZSetOperations.TypedTuple<String> tuple : tuples) {
@@ -75,7 +100,7 @@ public class RedisRankServiceImpl implements RedisRankService {
             }
 
             Long userId = Long.valueOf(userIdStr);
-            User user = userMapper.selectById(userId);
+            User user = userMap.get(userId);
 
             RankItemVO item = new RankItemVO();
             item.setUserId(userId);
