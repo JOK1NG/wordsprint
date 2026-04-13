@@ -646,6 +646,11 @@ const loadCheckinCalendar = async () => {
   }
 }
 
+const handleResize = () => {
+  trendChart?.resize()
+  familiarityChart?.resize()
+}
+
 onMounted(() => {
   loadStatistics('WEEK')
   loadFamiliarityDistribution()
