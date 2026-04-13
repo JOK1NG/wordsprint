@@ -51,28 +51,10 @@
         </template>
 
         <el-empty v-if="!loading && trendItems.length === 0" description="当前范围暂无趋势数据">
-          <el-button type="primary" @click="loadStatistics(activeRange)">重新加载</el-button>
+          <el-button type="primary" @click="loadStatistics(activeRange)">重试</el-button>
         </el-empty>
 
-        <div v-else class="trend-list">
-          <div v-for="item in trendItems" :key="item.key" class="trend-item">
-            <div class="trend-main">
-              <div class="trend-date">{{ item.label }}</div>
-              <div class="trend-subtitle">
-                学习 {{ item.studyCount }} 题 · 答对 {{ item.correctCount }} 题 · {{ item.accuracyText }}
-              </div>
-            </div>
-            <div class="trend-bar-wrap">
-              <div class="trend-bar-track">
-                <div class="trend-bar-fill" :style="{ width: item.barWidth }" />
-              </div>
-              <div class="trend-side-metrics">
-                <span>{{ item.durationText }}</span>
-                <span>+{{ item.pointsEarned }} 分</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div v-else ref="trendChartRef" class="chart-container trend-chart-container" />
       </el-card>
 
       <el-card shadow="never" class="extra-card" v-loading="loading">
@@ -122,23 +104,7 @@
           <el-button type="primary" @click="loadFamiliarityDistribution">重试</el-button>
         </el-empty>
 
-        <div v-else class="familiarity-list">
-          <div v-for="item in familiarityItems" :key="item.key" class="familiarity-item">
-            <div class="familiarity-head">
-              <div>
-                <div class="familiarity-label">{{ item.label }}</div>
-                <div class="familiarity-hint">{{ item.hint }}</div>
-              </div>
-              <div class="familiarity-metrics">
-                <span>{{ item.count }} 张</span>
-                <span>{{ item.percentText }}</span>
-              </div>
-            </div>
-            <div class="familiarity-track">
-              <div class="familiarity-fill" :style="{ width: item.barWidth }" />
-            </div>
-          </div>
-        </div>
+        <div v-else ref="familiarityChartRef" class="chart-container familiarity-chart-container" />
       </el-card>
 
       <el-card shadow="never" class="supplementary-card" v-loading="calendarLoading">
@@ -162,7 +128,7 @@
         />
 
         <el-empty v-else-if="!calendarLoading && calendarItems.length === 0" description="最近 30 天暂无打卡记录">
-          <el-button type="primary" @click="loadCheckinCalendar">重新加载</el-button>
+          <el-button type="primary" @click="loadCheckinCalendar">重试</el-button>
         </el-empty>
 
         <div v-else>
@@ -196,13 +162,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 
 import {
   getCheckinCalendar,
   getStudyFamiliarityDistribution,
   getStudyStatistics,
 } from '../../api/study'
+
+let echarts = null
+const loadECharts = async () => {
+  if (!echarts) {
+    const mod = await import('echarts')
+    echarts = mod
+  }
+  return echarts
+}
 
 const RANGE_OPTIONS = ['WEEK', 'MONTH', 'ALL']
 
@@ -219,6 +194,11 @@ const calendarLoading = ref(false)
 const calendarDays = ref([])
 const calendarCurrentStreakDays = ref(null)
 const calendarErrorText = ref('')
+
+const trendChartRef = ref(null)
+const familiarityChartRef = ref(null)
+let trendChart = null
+let familiarityChart = null
 
 const FAMILIARITY_HINT_MAP = {
   0: '刚开始学习',
@@ -356,42 +336,6 @@ const normalizeCalendarDays = (list) => {
   })
 }
 
-const normalizeTrendItems = (data) => {
-  const rawList = Array.isArray(data?.trend) ? data.trend : []
-
-  if (rawList.length === 0) {
-    return []
-  }
-
-  const maxStudyCount = rawList.reduce((max, item) => {
-    const studyCount = Number(item?.studyCount ?? 0)
-    return Math.max(max, Number.isFinite(studyCount) ? studyCount : 0)
-  }, 0)
-
-  return rawList.map((item, index) => {
-    const studyCount = Number(item?.studyCount ?? 0)
-    const correctCount = Number(item?.correctCount ?? 0)
-    const pointsEarned = Number(item?.pointsEarned ?? 0)
-    const dateText = item?.date || `DAY-${index + 1}`
-    const date = new Date(dateText)
-    const label = Number.isNaN(date.getTime())
-      ? dateText
-      : date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-    const barRatio = maxStudyCount > 0 ? studyCount / maxStudyCount : 0
-
-    return {
-      key: `${dateText}-${index}`,
-      label,
-      studyCount,
-      correctCount,
-      pointsEarned,
-      accuracyText: `正确率 ${formatPercent(item?.accuracyRate, studyCount > 0 ? `${Math.round((correctCount / studyCount) * 100)}%` : '0%')}`,
-      durationText: formatDuration(item?.durationSeconds ?? 0),
-      barWidth: `${Math.max(barRatio * 100, studyCount > 0 ? 12 : 0)}%`,
-    }
-  })
-}
-
 const summaryCards = computed(() => [
   {
     title: '总学习数',
@@ -443,25 +387,146 @@ const extraItems = computed(() => [
   },
 ])
 
-const trendItems = computed(() => normalizeTrendItems(statistics.value))
+const FAMILIARITY_COLORS = ['#94a3b8', '#f59e0b', '#3b82f6', '#22c55e', '#8b5cf6', '#ef4444']
+
+const trendItems = computed(() => {
+  const rawList = Array.isArray(statistics.value?.trend) ? statistics.value.trend : []
+  return rawList.map((item, index) => {
+    const dateText = item?.date || `DAY-${index + 1}`
+    const date = new Date(dateText)
+    const label = Number.isNaN(date.getTime())
+      ? dateText
+      : date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+    return {
+      key: `${dateText}-${index}`,
+      label,
+      date: dateText,
+      studyCount: Number(item?.studyCount ?? 0),
+      correctCount: Number(item?.correctCount ?? 0),
+      accuracyRate: Number(item?.accuracyRate ?? 0),
+      durationSeconds: Number(item?.durationSeconds ?? 0),
+      pointsEarned: Number(item?.pointsEarned ?? 0),
+    }
+  })
+})
 
 const familiarityItems = computed(() => {
   const distribution = normalizeFamiliarityDistribution(familiarityDistribution.value)
   const total = distribution.reduce((sum, item) => sum + item.count, 0)
-
-  return distribution.map((item) => {
-    const percent = total > 0 ? (item.count / total) * 100 : 0
-
-    return {
-      key: `level-${item.level}`,
-      label: `Lv.${item.level}`,
-      hint: FAMILIARITY_HINT_MAP[item.level],
-      count: item.count,
-      percentText: `${Math.round(percent)}%`,
-      barWidth: `${Math.max(percent, item.count > 0 ? 10 : 0)}%`,
-    }
-  })
+  return distribution.map((item) => ({
+    key: `level-${item.level}`,
+    label: `Lv.${item.level}`,
+    hint: FAMILIARITY_HINT_MAP[item.level],
+    count: item.count,
+    percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+  }))
 })
+
+const renderTrendChart = async () => {
+  if (!trendChartRef.value || trendItems.value.length === 0) return
+  const echartsLib = await loadECharts()
+  if (!trendChart) {
+    trendChart = echartsLib.init(trendChartRef.value)
+  }
+  const items = trendItems.value
+  trendChart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
+      formatter(params) {
+        const date = params[0]?.axisValueLabel || ''
+        let html = `<strong>${date}</strong><br/>`
+        params.forEach((p) => {
+          html += `${p.marker} ${p.seriesName}: ${p.value}<br/>`
+        })
+        return html
+      },
+    },
+    legend: {
+      data: ['学习数', '答对数'],
+      bottom: 0,
+    },
+    grid: { left: 48, right: 48, top: 16, bottom: 40 },
+    xAxis: {
+      type: 'category',
+      data: items.map((i) => i.label),
+      axisLabel: { fontSize: 11, color: '#909399' },
+      axisLine: { lineStyle: { color: '#ebeef5' } },
+      axisTick: { show: false },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '题数',
+        minInterval: 1,
+        axisLabel: { fontSize: 11, color: '#909399' },
+        splitLine: { lineStyle: { color: '#f0f0f0' } },
+      },
+    ],
+    series: [
+      {
+        name: '学习数',
+        type: 'bar',
+        data: items.map((i) => i.studyCount),
+        barMaxWidth: 24,
+        itemStyle: { color: '#818cf8', borderRadius: [4, 4, 0, 0] },
+      },
+      {
+        name: '答对数',
+        type: 'line',
+        data: items.map((i) => i.correctCount),
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: '#22c55e', width: 2 },
+        itemStyle: { color: '#22c55e' },
+      },
+    ],
+  }, true)
+}
+
+const renderFamiliarityChart = async () => {
+  if (!familiarityChartRef.value || familiarityItems.value.length === 0) return
+  const echartsLib = await loadECharts()
+  if (!familiarityChart) {
+    familiarityChart = echartsLib.init(familiarityChartRef.value)
+  }
+  const items = familiarityItems.value
+  familiarityChart.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter(p) {
+        return `${p.name}<br/>${p.marker} ${p.value} 张 (${p.percent}%)`
+      },
+    },
+    legend: {
+      orient: 'vertical',
+      right: 16,
+      top: 'center',
+      formatter(name) {
+        const item = items.find((i) => i.label === name)
+        return item ? `${name} ${item.hint}` : name
+      },
+    },
+    series: [
+      {
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['35%', '50%'],
+        avoidLabelOverlap: true,
+        label: { show: false },
+        emphasis: {
+          label: { show: true, fontSize: 14, fontWeight: 'bold' },
+        },
+        data: items.map((item, idx) => ({
+          name: item.label,
+          value: item.count,
+          itemStyle: { color: FAMILIARITY_COLORS[idx] || '#94a3b8' },
+        })),
+      },
+    ],
+  }, true)
+}
 
 const familiarityTotal = computed(() => familiarityItems.value.reduce((sum, item) => sum + item.count, 0))
 
@@ -537,6 +602,7 @@ const loadStatistics = async (rangeType = activeRange.value) => {
     }
   } finally {
     loading.value = false
+    nextTick(() => renderTrendChart())
   }
 }
 
@@ -559,6 +625,7 @@ const loadFamiliarityDistribution = async () => {
     familiarityErrorText.value = error?.message || '获取熟练度分布失败'
   } finally {
     familiarityLoading.value = false
+    nextTick(() => renderFamiliarityChart())
   }
 }
 
@@ -583,6 +650,15 @@ onMounted(() => {
   loadStatistics('WEEK')
   loadFamiliarityDistribution()
   loadCheckinCalendar()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  trendChart?.dispose()
+  familiarityChart?.dispose()
+  trendChart = null
+  familiarityChart = null
 })
 </script>
 
@@ -654,64 +730,17 @@ onMounted(() => {
   color: #909399;
 }
 
-.trend-list {
-  display: grid;
-  gap: 12px;
-}
-
-.trend-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(220px, 1fr);
-  gap: 16px;
-  padding: 14px 16px;
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
-  background: #fafafa;
-}
-
-.trend-main {
-  min-width: 0;
-}
-
-.trend-date {
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.trend-subtitle {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #909399;
-}
-
-.trend-bar-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-}
-
-.trend-bar-track {
+.chart-container {
   width: 100%;
-  height: 10px;
-  border-radius: 999px;
-  background: #ebeef5;
-  overflow: hidden;
+  min-height: 320px;
 }
 
-.trend-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #818cf8 0%, #4f46e5 100%);
+.trend-chart-container {
+  height: 360px;
 }
 
-.trend-side-metrics {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
-  color: #606266;
+.familiarity-chart-container {
+  height: 320px;
 }
 
 .extra-grid {
@@ -742,61 +771,6 @@ onMounted(() => {
 .extra-hint {
   font-size: 13px;
   color: #606266;
-}
-
-.familiarity-list {
-  display: grid;
-  gap: 14px;
-}
-
-.familiarity-item {
-  padding: 14px 16px;
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
-  background: #fafafa;
-}
-
-.familiarity-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-
-.familiarity-label {
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.familiarity-hint {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #909399;
-}
-
-.familiarity-metrics {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  font-size: 13px;
-  color: #606266;
-  white-space: nowrap;
-}
-
-.familiarity-track {
-  width: 100%;
-  height: 10px;
-  border-radius: 999px;
-  background: #ebeef5;
-  overflow: hidden;
-}
-
-.familiarity-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #34d399 0%, #059669 100%);
 }
 
 .calendar-legend {

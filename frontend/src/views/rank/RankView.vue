@@ -49,6 +49,7 @@
       <el-skeleton :rows="10" animated v-if="loading" />
       <template v-else>
         <el-table
+          v-if="rankList.length > 0"
           :data="rankList"
           stripe
           class="rank-table"

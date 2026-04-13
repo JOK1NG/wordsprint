@@ -65,6 +65,9 @@
       </el-alert>
 
       <el-table :data="tableData" v-loading="loading" stripe>
+        <template #empty>
+          <el-empty v-if="!loadErrorText" description="还没有单词卡，点击上方按钮新增吧" :image-size="120" />
+        </template>
         <el-table-column prop="word" label="单词" width="150" />
         <el-table-column prop="phonetic" label="音标" width="120" />
         <el-table-column prop="meaning" label="词义" show-overflow-tooltip />

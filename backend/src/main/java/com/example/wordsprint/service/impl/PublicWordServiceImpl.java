@@ -16,6 +16,7 @@ import com.example.wordsprint.vo.PublicWordCsvImportResultVO;
 import com.example.wordsprint.vo.PublicWordImportResultVO;
 import com.example.wordsprint.vo.PublicWordVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PublicWordServiceImpl implements PublicWordService {
@@ -113,6 +115,7 @@ public class PublicWordServiceImpl implements PublicWordService {
         wordCard.setIsDeleted(0);
         wordCardMapper.insert(wordCard);
 
+        log.info("公共词库导入到个人词库: userId={}, publicWordId={}, wordCardId={}, word={}", userId, publicWordId, wordCard.getId(), publicWord.getWord());
         PublicWordImportResultVO result = new PublicWordImportResultVO();
         result.setImported(true);
         result.setWordCardId(wordCard.getId());
@@ -221,6 +224,7 @@ public class PublicWordServiceImpl implements PublicWordService {
         result.setUpdatedCount(updatedCount);
         result.setFailedCount(totalRows - insertedCount - updatedCount);
         result.setErrors(errors);
+        log.info("管理员公共词库CSV导入: total={}, inserted={}, updated={}, failed={}", totalRows, insertedCount, updatedCount, totalRows - insertedCount - updatedCount);
         return result;
     }
 

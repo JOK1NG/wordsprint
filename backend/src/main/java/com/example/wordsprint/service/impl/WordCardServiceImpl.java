@@ -15,8 +15,10 @@ import com.example.wordsprint.vo.WordCardImportErrorVO;
 import com.example.wordsprint.vo.WordCardImportResultVO;
 import com.example.wordsprint.vo.WordCardVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WordCardServiceImpl implements WordCardService {
@@ -48,6 +51,9 @@ public class WordCardServiceImpl implements WordCardService {
     private static final int BATCH_SIZE = 200;
 
     private final WordCardMapper wordCardMapper;
+    private final StringRedisTemplate stringRedisTemplate;
+
+    private static final String POOL_KEY_PREFIX = "wordsprint:pool:";
 
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
@@ -71,6 +77,8 @@ public class WordCardServiceImpl implements WordCardService {
         wordCard.setIsDeleted(0);
 
         wordCardMapper.insert(wordCard);
+        invalidateRandomPool(userId);
+        log.info("单词卡创建: userId={}, wordCardId={}, word={}", userId, wordCard.getId(), wordCard.getWord());
         return toVO(requireOwnedWordCard(userId, wordCard.getId()));
     }
 
@@ -86,6 +94,8 @@ public class WordCardServiceImpl implements WordCardService {
         wordCard.setIsPublic(Boolean.TRUE.equals(request.getIsPublic()) ? 1 : 0);
 
         wordCardMapper.updateById(wordCard);
+        invalidateRandomPool(userId);
+        log.info("单词卡更新: userId={}, wordCardId={}", userId, id);
         return toVO(requireOwnedWordCard(userId, id));
     }
 
@@ -94,6 +104,8 @@ public class WordCardServiceImpl implements WordCardService {
     public void delete(Long userId, Long id) {
         WordCard wordCard = requireOwnedWordCard(userId, id);
         wordCardMapper.deleteById(wordCard.getId());
+        invalidateRandomPool(userId);
+        log.info("单词卡删除: userId={}, wordCardId={}", userId, id);
     }
 
     @Override
@@ -197,11 +209,16 @@ public class WordCardServiceImpl implements WordCardService {
 
         successCount = persistImportedWordCards(validRows, errors);
 
+        if (successCount > 0) {
+            invalidateRandomPool(userId);
+        }
+
         WordCardImportResultVO result = new WordCardImportResultVO();
         result.setTotalRows(totalRows);
         result.setSuccessCount(successCount);
         result.setFailedCount(totalRows - successCount);
         result.setErrors(errors);
+        log.info("词卡CSV导入完成: userId={}, total={}, success={}, failed={}", userId, totalRows, successCount, totalRows - successCount);
         return result;
     }
 
@@ -469,6 +486,10 @@ public class WordCardServiceImpl implements WordCardService {
             return null;
         }
         return value.trim();
+    }
+
+    private void invalidateRandomPool(Long userId) {
+        stringRedisTemplate.delete(POOL_KEY_PREFIX + userId);
     }
 
     private static class WordCardImportRow {

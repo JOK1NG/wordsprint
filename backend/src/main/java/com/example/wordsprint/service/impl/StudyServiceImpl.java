@@ -29,6 +29,7 @@ import com.example.wordsprint.vo.StudyStatisticsVO;
 import com.example.wordsprint.vo.StudySubmitResponse;
 import com.example.wordsprint.vo.StudyTodaySummaryVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -48,6 +49,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StudyServiceImpl implements StudyService {
@@ -71,6 +73,8 @@ public class StudyServiceImpl implements StudyService {
     private static final int CHOICE_OPTION_COUNT = 4;
     private static final int CALENDAR_DAYS = 30;
     private static final Duration SUBMIT_LOCK_TTL = Duration.ofSeconds(3);
+    private static final Duration POOL_CACHE_TTL = Duration.ofHours(1);
+    private static final String POOL_KEY_PREFIX = "wordsprint:pool:";
     private static final String RANGE_TYPE_WEEK = "WEEK";
     private static final String RANGE_TYPE_MONTH = "MONTH";
     private static final String RANGE_TYPE_ALL = "ALL";
@@ -128,6 +132,7 @@ public class StudyServiceImpl implements StudyService {
         response.setCorrectAnswer(correctAnswer);
         response.setFamiliarityLevel(wordCard.getFamiliarityLevel());
         response.setMemoryStatus(wordCard.getMemoryStatus());
+        log.info("答题提交: userId={}, wordCardId={}, mode={}, isCorrect={}, familiarity={}", userId, wordCard.getId(), mode, isCorrect, wordCard.getFamiliarityLevel());
         return response;
     }
 
@@ -314,18 +319,50 @@ public class StudyServiceImpl implements StudyService {
             return fetchWrongReviewCards(userId, size);
         }
 
-        List<WordCard> pool = wordCardMapper.selectList(new LambdaQueryWrapper<WordCard>()
-                .eq(WordCard::getUserId, userId)
-                .orderByDesc(WordCard::getUpdatedAt)
-                .orderByDesc(WordCard::getId)
-                .last("LIMIT " + RANDOM_POOL_LIMIT));
+        String poolKey = POOL_KEY_PREFIX + userId;
+        Set<String> cachedIds = stringRedisTemplate.opsForSet().members(poolKey);
 
-        if (pool.isEmpty()) {
-            return Collections.emptyList();
+        List<Long> cardIds;
+        if (cachedIds != null && !cachedIds.isEmpty()) {
+            cardIds = cachedIds.stream()
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+            Collections.shuffle(cardIds);
+            if (cardIds.size() > size) {
+                cardIds = cardIds.subList(0, size);
+            }
+        } else {
+            List<WordCard> pool = wordCardMapper.selectList(new LambdaQueryWrapper<WordCard>()
+                    .eq(WordCard::getUserId, userId)
+                    .orderByDesc(WordCard::getUpdatedAt)
+                    .orderByDesc(WordCard::getId)
+                    .last("LIMIT " + RANDOM_POOL_LIMIT));
+
+            if (pool.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            String[] idStrings = pool.stream()
+                    .map(card -> String.valueOf(card.getId()))
+                    .toArray(String[]::new);
+            stringRedisTemplate.opsForSet().add(poolKey, idStrings);
+            stringRedisTemplate.expire(poolKey, POOL_CACHE_TTL);
+
+            Collections.shuffle(pool);
+            return pool.subList(0, Math.min(size, pool.size()));
         }
 
-        Collections.shuffle(pool);
-        return pool.subList(0, Math.min(size, pool.size()));
+        List<WordCard> cards = wordCardMapper.selectBatchIds(cardIds);
+        Map<Long, WordCard> cardMap = cards.stream()
+                .collect(Collectors.toMap(WordCard::getId, card -> card));
+        List<WordCard> result = new ArrayList<>();
+        for (Long id : cardIds) {
+            WordCard card = cardMap.get(id);
+            if (card != null) {
+                result.add(card);
+            }
+        }
+        return result;
     }
 
     private List<WordCard> fetchWrongReviewCards(Long userId, int size) {

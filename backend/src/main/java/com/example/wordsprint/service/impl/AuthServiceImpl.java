@@ -15,12 +15,14 @@ import com.example.wordsprint.vo.LoginResponse;
 import com.example.wordsprint.vo.RegisterResponse;
 import com.example.wordsprint.vo.UserInfoResponse;
 import com.example.wordsprint.service.RedisRankService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -75,6 +77,7 @@ public class AuthServiceImpl implements AuthService {
         redisRankService.updateUserPoints(user.getId(), 0);
         redisRankService.updateUserStreak(user.getId(), 0);
 
+        log.info("用户注册成功: userId={}, username={}", user.getId(), username);
         return new RegisterResponse(user.getId(), user.getUsername());
     }
 
@@ -94,6 +97,7 @@ public class AuthServiceImpl implements AuthService {
         userMapper.updateById(user);
 
         String token = jwtTokenProvider.generateToken(user.getId());
+        log.info("用户登录成功: userId={}, username={}", user.getId(), username);
         UserInfoResponse userInfo = new UserInfoResponse(
                 user.getId(),
                 user.getUsername(),

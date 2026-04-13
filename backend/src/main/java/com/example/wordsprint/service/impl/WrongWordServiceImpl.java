@@ -16,6 +16,7 @@ import com.example.wordsprint.service.WrongWordService;
 import com.example.wordsprint.vo.StudyRandomResponse;
 import com.example.wordsprint.vo.WrongWordVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WrongWordServiceImpl implements WrongWordService {
@@ -94,6 +96,7 @@ public class WrongWordServiceImpl implements WrongWordService {
 
         wrongWord.setStatus(STATUS_RESOLVED);
         wrongWordMapper.updateById(wrongWord);
+        log.info("错题移除: userId={}, wordCardId={}", userId, wordCardId);
     }
 
     @Override
@@ -110,6 +113,7 @@ public class WrongWordServiceImpl implements WrongWordService {
 
         wrongWord.setStatus(STATUS_ACTIVE);
         wrongWordMapper.updateById(wrongWord);
+        log.info("错题恢复: userId={}, wordCardId={}", userId, wordCardId);
     }
 
     @Override
