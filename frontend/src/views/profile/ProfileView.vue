@@ -328,7 +328,7 @@ async function handlePlanSubmit() {
 .card-header {
   font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--ws-text-title);
 }
 
 .profile-preview {
@@ -347,12 +347,12 @@ async function handlePlanSubmit() {
 .profile-name {
   font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--ws-text-title);
 }
 
 .profile-username {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--ws-text-muted);
 }
 
 .profile-form {
