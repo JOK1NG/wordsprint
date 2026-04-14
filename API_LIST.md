@@ -801,6 +801,7 @@ CSV 列顺序（前两列必填）：
         "rank": 1,
         "userId": 2,
         "nickname": "Alice",
+        "avatar": "https://example.com/avatar-alice.png",
         "score": 150
       }
     ]

@@ -106,6 +106,7 @@ public class RedisRankServiceImpl implements RedisRankService {
             RankItemVO item = new RankItemVO();
             item.setUserId(userId);
             item.setNickname(user != null ? user.getNickname() : null);
+            item.setAvatar(user != null ? user.getAvatar() : null);
             item.setScore(score != null ? score.intValue() : 0);
             item.setRank((int) rank++);
             result.add(item);

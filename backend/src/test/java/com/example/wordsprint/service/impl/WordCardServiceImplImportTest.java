@@ -10,6 +10,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
@@ -27,6 +28,9 @@ class WordCardServiceImplImportTest {
 
     @Mock
     private WordCardMapper wordCardMapper;
+
+    @Mock
+    private StringRedisTemplate stringRedisTemplate;
 
     @InjectMocks
     private WordCardServiceImpl wordCardService;

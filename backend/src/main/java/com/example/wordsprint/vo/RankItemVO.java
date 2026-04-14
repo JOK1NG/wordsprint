@@ -11,5 +11,7 @@ public class RankItemVO {
 
     private String nickname;
 
+    private String avatar;
+
     private Integer score;
 }
