@@ -34,7 +34,7 @@ You are permitted to make file changes, run shell commands, and utilize your ars
 
 1. `AGENTS.md`
 2. `HANDOFF.md`
-3. `WORD_CARD_DEV_PLAN.md`
+3. `TECH_SPEC.md`
 4. `FRONTEND_PAGE_DESIGN.md`
 5. `README.md`
 6. `DATABASE_DESIGN.md`
@@ -137,7 +137,7 @@ You are permitted to make file changes, run shell commands, and utilize your ars
 frontend/
 backend/
 README.md
-WORD_CARD_DEV_PLAN.md
+TECH_SPEC.md
 DATABASE_DESIGN.md
 API_LIST.md
 ITERATION_TODO.md

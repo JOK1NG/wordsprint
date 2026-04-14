@@ -1,16 +1,16 @@
 <!-- markdownlint-disable MD024 -->
 # WordSprint 前端页面设计方案
 
-本文档用于约束 WordSprint 的前端页面结构、交互流程和数据需求。目标不是先做高保真视觉稿，而是先把页面信息架构、主要模块和接口需求定清楚，减少后续返工。
+本文档用于描述当前前端页面结构、交互重点和页面与接口的对应关系，只保留仍然有效的设计信息。
 
 ---
 
 ## 1. 设计目标
 
 - 优先保证学习主流程完整
-- 页面结构简单、清晰、可快速实现
-- 让前端页面直接反推后端接口字段
-- 保持轻量，不做复杂动画和重社交化设计
+- 页面信息清晰，减少认知负担
+- 前端页面能直接反推接口字段和状态需求
+- 视觉和交互保持轻量，不做与 MVP 无关的复杂设计
 
 ---
 
@@ -18,69 +18,66 @@
 
 ### 2.1 产品原则
 
-- 首页先告诉用户今天该学什么
-- 学习页先让用户尽快进入答题状态
-- 单词卡页强调录入、筛选、整理
-- 错题本页强调复习和清空反馈
-- 统计页强调成长感，不堆砌无用图表
+- 首页先回答“今天该学什么”
+- 学习页先回答“当前这题怎么答”
+- 单词卡页先回答“怎么快速整理和筛选”
+- 统计页先回答“最近学得怎么样”
 
 ### 2.2 交互原则
 
 - 每个页面只保留一个主操作
 - 列表筛选集中在顶部
-- 高频按钮始终放在用户视线主区域
-- 所有异步状态必须有加载、空状态、错误提示
+- 所有异步流程都需要加载、空状态和错误提示
+- 高频操作放在用户主视线区域
 
 ### 2.3 UI 原则
 
-- 延续现在已有的深色侧边栏 + 浅色内容区结构
-- 使用 `Element Plus` 现成组件为主
-- 视觉重点放在数据卡片、训练卡片、进度反馈
-- 移动端优先纵向堆叠，不保留复杂双栏布局
+- 延续当前浅色内容区 + 左侧导航布局
+- 以 `Element Plus` 现成组件为主
+- 强调数据卡片、训练反馈和状态可读性
+- 移动端优先纵向堆叠
 
 ---
 
-## 3. 页面地图
-
-## 3.1 MVP 页面
+## 3. 当前页面地图
 
 ```text
-/login              登录页
-/register           注册页
-/                   学习仪表盘
-/word-cards         单词卡列表页
-/word-cards/create  新增单词卡页
-/word-cards/edit/:id 编辑单词卡页
-/study              学习训练页
-/wrong-words        错题本页
-/rank               排行榜页
-/statistics         学习统计页
-/profile            个人中心页
+/login                 登录页
+/register              注册页
+/                      重定向到 /dashboard
+/dashboard             学习仪表盘
+/word-cards            单词卡列表
+/word-cards/create     新增单词卡
+/word-cards/edit/:id   编辑单词卡
+/study                 学习训练
+/wrong-words           错题本
+/rank                  排行榜
+/statistics            学习统计
+/profile               个人中心
+/public-library        公共词库
 ```
 
-## 3.2 可选增强页面
+说明：
 
-```text
-/public-library     公共词库页
-/study-plan         学习计划页
-```
+- 学习计划当前整合在 `/profile` 页面里，没有单独拆成 `/study-plan`
+- 根路径 `/` 当前只作为登录后的入口跳转
 
 ---
 
 ## 4. 全局布局设计
 
-## 4.1 桌面端布局
+### 4.1 桌面端布局
 
 ```text
 ┌──────────────┬──────────────────────────────┐
 │ 侧边栏       │ 顶部信息区 / 页面主内容      │
 │ Logo         │                              │
 │ 导航菜单      │                              │
-│ 我的进度入口   │                              │
+│ 用户信息入口   │                              │
 └──────────────┴──────────────────────────────┘
 ```
 
-### 侧边栏导航建议
+### 4.2 侧边栏导航
 
 - 学习仪表盘
 - 单词卡
@@ -88,21 +85,14 @@
 - 错题本
 - 排行榜
 - 学习统计
+- 公共词库
 - 个人中心
 
-### 顶部区域建议
-
-- 页面标题
-- 简要说明
-- 当前用户昵称
-- 快捷操作按钮，如“开始学习”
-
-## 4.2 移动端布局
+### 4.3 移动端布局
 
 - 侧边栏收起成抽屉菜单
-- 所有卡片纵向排列
-- 列表筛选收进折叠面板
-- 学习页按钮区固定底部，便于连续答题
+- 卡片和表单纵向排列
+- 高频按钮优先保持可点击面积
 
 ---
 
@@ -112,7 +102,7 @@
 
 ### 页面目标
 
-让用户快速进入系统。
+让用户快速完成登录并进入仪表盘。
 
 ### 页面模块
 
@@ -120,26 +110,6 @@
 - 登录表单
 - 登录按钮
 - 去注册入口
-
-### 表单字段
-
-- 用户名
-- 密码
-
-### 核心交互
-
-1. 用户输入用户名和密码
-2. 点击登录
-3. 调用 `/api/auth/login`
-4. 成功后保存 token
-5. 拉取 `/api/user/me`
-6. 跳转到 `/`
-
-### 状态设计
-
-- 提交中按钮 loading
-- 登录失败显示后端错误消息
-- 已登录用户访问时直接跳转仪表盘
 
 ### 需要接口
 
@@ -161,73 +131,26 @@
 - 注册按钮
 - 去登录入口
 
-### 表单字段
-
-- 用户名
-- 昵称
-- 密码
-
-### 核心交互
-
-1. 用户填写注册信息
-2. 点击注册
-3. 调用 `/api/auth/register`
-4. 注册成功后提示用户去登录，或者直接跳转登录页
-
-### 状态设计
-
-- 字段前端校验
-- 用户名重复时展示业务错误
-
 ### 需要接口
 
 - `POST /api/auth/register`
 
 ---
 
-## 5.3 学习仪表盘 `/`
+## 5.3 学习仪表盘 `/dashboard`
 
 ### 页面目标
 
-把“今天该做什么”和“现在状态如何”放在一个页面里。
+把“今天该做什么”和“当前状态如何”放到一个页面中。
 
 ### 页面模块
 
 - 顶部欢迎区
 - 今日学习摘要卡片
-- 今日目标进度卡片
-- 当前连续学习天数卡片
-- 当前积分 / 排名卡片
+- 学习 / 复习目标进度
+- 连续学习天数、积分、排名
 - 快速开始学习入口
-- 待复习数量提示
-- 最近学习趋势简图
-
-### 建议布局
-
-```text
-欢迎区 + 开始学习按钮
-四个摘要卡片
-今日进度 + 待复习
-最近趋势图
-```
-
-### 核心交互
-
-- 点击“开始学习”进入 `/study`
-- 点击“错题复习”进入 `/wrong-words`
-- 点击“查看统计”进入 `/statistics`
-
-### 需要数据
-
-- 今日学习数
-- 今日正确数
-- 今日正确率
-- 今日目标数量
-- 当前连续天数
-- 当前积分
-- 当前排名
-- 待复习数量
-- 最近 7 天学习趋势
+- 最近趋势简图
 
 ### 需要接口
 
@@ -241,41 +164,15 @@
 
 ### 页面目标
 
-让用户高效管理自己的单词卡。
+高效管理自己的单词卡。
 
 ### 页面模块
 
 - 页面标题 + 新增按钮
 - 搜索框
 - 筛选区
-- 单词卡表格 / 卡片列表
+- 单词卡表格
 - 分页器
-
-### 筛选项
-
-- 关键字
-- 标签
-- 记忆状态
-- 熟练度范围
-- 是否只看错题
-
-### 列表字段
-
-- 单词
-- 词义
-- 标签
-- 记忆状态
-- 熟练度
-- 错误次数
-- 最近学习时间
-- 操作列：查看 / 编辑 / 删除
-
-### 核心交互
-
-- 点击“新增单词卡”进入 `/word-cards/create`
-- 点击“编辑”进入 `/word-cards/edit/:id`
-- 点击“删除”弹确认框
-- 点击某一行可查看详情抽屉或详情弹窗
 
 ### 需要接口
 
@@ -289,7 +186,7 @@
 
 ### 页面目标
 
-低阻力录入单词卡。
+低阻力录入和修改单词卡。
 
 ### 页面模块
 
@@ -297,26 +194,11 @@
 - 表单区
 - 保存按钮
 
-### 表单字段
+### 需要接口
 
-- 单词
-- 音标
-- 词义
-- 例句
-- 标签
-- 是否公开
-
-### 核心交互
-
-- 新增页提交时调用 `POST /api/word-cards`
-- 编辑页加载详情后调用 `PUT /api/word-cards/{id}`
-- 保存成功后回到列表页
-
-### 字段要求
-
-- `word` 必填
-- `meaning` 必填
-- 其他字段可选
+- `POST /api/word-cards`
+- `PUT /api/word-cards/{id}`
+- `GET /api/word-cards/{id}`
 
 ---
 
@@ -324,60 +206,23 @@
 
 ### 页面目标
 
-这是本项目最核心的页面，要让用户尽快进入连续答题状态。
+让用户尽快进入连续答题状态。
 
 ### 页面模块
 
-- 顶部训练模式切换
-- 当前进度条
+- 学习模式切换
+- 当前进度
 - 题目卡片
-- 答案输入区 / 选项区
-- 提交按钮
+- 提交区 / 选项区
 - 判题反馈区
 - 下一题按钮
-- 本轮统计摘要
-
-### 训练模式
-
-- 看单词回忆中文
-- 看中文拼写英文
-- 选择题
-- 错题重练
-
-### 题目卡片结构
-
-- 模式标题
-- 题目主体
-- 辅助信息，如音标或例句
-- 当前题号 / 总题数
-
-### 提交流程
-
-1. 页面进入后按模式请求题目
-2. 渲染第一题
-3. 用户提交答案
-4. 调用 `/api/study/submit`
-5. 展示正确与否、正确答案、当前积分变化
-6. 点击下一题继续
-
-### 页面状态
-
-- 未开始：展示模式选择和开始按钮
-- 进行中：展示题目和答题区
-- 已提交：展示结果反馈并锁定本题输入
-- 已完成：展示本轮总结卡片
+- 本轮总结
 
 ### 需要接口
 
 - `GET /api/study/random`
 - `POST /api/study/submit`
 - `GET /api/study/today-summary`
-
-### 页面实现注意点
-
-- 不要一次塞太多装饰信息
-- 提交后反馈要立即可见
-- 移动端按钮区保持大尺寸可点击
 
 ---
 
@@ -392,27 +237,13 @@
 - 页面标题
 - 状态筛选
 - 错题列表
-- 批量开始错题训练入口
-
-### 列表字段
-
-- 单词
-- 词义
-- 错误次数
-- 最近答错时间
-- 当前状态
-- 操作：重练 / 移除
-
-### 核心交互
-
-- 点击“错题训练”进入 `/study?mode=WRONG_REVIEW`
-- 点击“移除”调用移出接口
-- 可筛选 `ACTIVE` 与 `RESOLVED`
+- 错题专项训练入口
 
 ### 需要接口
 
 - `GET /api/wrong-words`
 - `POST /api/wrong-words/{wordCardId}/remove`
+- `POST /api/wrong-words/{wordCardId}/restore`
 - `GET /api/wrong-words/practice`
 
 ---
@@ -421,29 +252,20 @@
 
 ### 页面目标
 
-提供成长反馈和一点轻量竞争感。
+展示成长反馈和轻量竞争感。
 
 ### 页面模块
 
 - 榜单类型切换
-- 我的名次卡片
+- 我的排名卡片
 - 排行榜列表
 
-### 榜单类型
-
-- 积分榜
-- 连续打卡榜
-
-### 列表字段
+### 列表重点字段
 
 - 排名
+- 头像
 - 用户昵称
-- 分数 / 天数 / 时长
-
-### 核心交互
-
-- 切换不同榜单类型
-- 高亮当前用户
+- 分数 / 连续天数
 
 ### 需要接口
 
@@ -456,33 +278,20 @@
 
 ### 页面目标
 
-展示“我学了多少”和“学得怎么样”。
+展示学习结果和阶段趋势。
 
 ### 页面模块
 
 - 时间范围切换
 - 统计摘要卡片
-- 学习趋势折线图
-- 正确率卡片
+- 趋势图
 - 熟练度分布图
-- 打卡热力区或日历区
-
-### 摘要字段
-
-- 总学习数
-- 总正确数
-- 正确率
-- 总学习时长
-- 当前连续天数
-
-### 核心交互
-
-- 切换 `WEEK` / `MONTH` / `ALL`
-- 切换后刷新图表数据
+- 打卡日历
 
 ### 需要接口
 
 - `GET /api/study/statistics`
+- `GET /api/study/familiarity-distribution`
 - `GET /api/checkin/calendar`
 
 ---
@@ -491,7 +300,7 @@
 
 ### 页面目标
 
-管理用户基础资料和个人学习目标。
+管理用户资料和学习计划。
 
 ### 页面模块
 
@@ -499,13 +308,6 @@
 - 用户名展示
 - 学习计划设置
 - 退出登录按钮
-
-### 可编辑字段
-
-- 昵称
-- 头像
-- 每日学习目标
-- 每日复习目标
 
 ### 需要接口
 
@@ -516,34 +318,59 @@
 
 ---
 
-## 6. 组件拆分建议
+## 5.11 公共词库页 `/public-library`
+
+### 页面目标
+
+降低首次使用门槛，让用户可以直接导入现成词库。
+
+### 页面模块
+
+- 词库筛选
+- 列表分页
+- 一键导入按钮
+- 管理员 CSV 导入入口
+
+### 需要接口
+
+- `GET /api/public-words`
+- `POST /api/public-words/{id}/import`
+- `POST /api/admin/public-words/import/csv`
+
+---
+
+## 6. 当前组件结构
 
 ## 6.1 页面级组件
 
 - `views/LoginView.vue`
 - `views/RegisterView.vue`
 - `views/DashboardView.vue`
-- `views/WordCardListView.vue`
-- `views/WordCardFormView.vue`
-- `views/StudyView.vue`
-- `views/WrongWordsView.vue`
-- `views/RankView.vue`
-- `views/StatisticsView.vue`
-- `views/ProfileView.vue`
+- `views/wordcard/WordCardListView.vue`
+- `views/wordcard/WordCardFormView.vue`
+- `views/study/StudyTrainingView.vue`
+- `views/wrongword/WrongWordListView.vue`
+- `views/rank/RankView.vue`
+- `views/statistics/StatisticsView.vue`
+- `views/profile/ProfileView.vue`
+- `views/publicword/PublicWordLibraryView.vue`
 
 ## 6.2 业务组件
 
-- `components/dashboard/SummaryCard.vue`
-- `components/study/StudyModeTabs.vue`
+- `components/common/PageHeader.vue`
+- `components/common/SummaryCard.vue`
+- `components/dashboard/WelcomeSection.vue`
+- `components/dashboard/GoalProgressCard.vue`
+- `components/dashboard/TrendList.vue`
+- `components/study/ModeSelector.vue`
 - `components/study/QuestionCard.vue`
-- `components/study/StudyResultPanel.vue`
-- `components/word-card/WordCardFilter.vue`
-- `components/word-card/WordCardTable.vue`
-- `components/rank/RankList.vue`
+- `components/study/SessionSummary.vue`
+- `components/rank/MyRankCard.vue`
+- `components/rank/RankTable.vue`
 - `components/statistics/TrendChart.vue`
+- `components/statistics/FamiliarityChart.vue`
 - `components/statistics/CheckinCalendar.vue`
-
-第一版不用提前把组件拆得太细，优先在页面内先做通，重复明显后再抽离。
+- `components/statistics/ExtraInfoCard.vue`
 
 ---
 
@@ -561,98 +388,42 @@
 ### 7.3 守卫规则
 
 - 无 token 访问业务页时跳转 `/login`
-- 已登录用户访问 `/login` 或 `/register` 时跳转 `/`
-- 401 时清空 token 并跳回登录页
+- 已登录用户访问 `/login` 或 `/register` 时跳转 `/dashboard`
+- 401 时清空 token 并返回登录页
 
 ---
 
-## 8. 空状态与错误状态
+## 8. 状态设计
 
-## 8.1 空状态
+### 8.1 空状态
 
 - 单词卡为空：提示先添加单词卡
-- 错题本为空：提示“当前没有活跃错题”
+- 错题本为空：提示当前没有活跃错题
 - 排行榜为空：展示默认占位
 
-## 8.2 错误状态
+### 8.2 错误状态
 
-- 网络错误：使用全局消息提示
-- 列表加载失败：提供重试按钮
-- 学习题获取失败：展示“重新开始本轮训练”按钮
-
----
-
-## 9. MVP 页面优先级
-
-第一阶段建议按以下顺序开发：
-
-1. 登录页
-2. 注册页
-3. 学习仪表盘
-4. 单词卡列表页
-5. 新增 / 编辑单词卡页
-6. 学习训练页
-7. 错题本页
-8. 排行榜页
-9. 学习统计页
-10. 个人中心页
+- 网络错误：统一消息提示
+- 列表加载失败：提供重试入口
+- 学习题获取失败：允许重新开始本轮训练
 
 ---
 
-## 10. 页面与接口反推关系
+## 9. 当前落地说明
 
-## 10.1 第一批必须先落地的接口
-
-- `/api/auth/register`
-- `/api/auth/login`
-- `/api/user/me`
-- `/api/word-cards`
-- `/api/word-cards/{id}`
-- `/api/study/random`
-- `/api/study/submit`
-- `/api/wrong-words`
-
-## 10.2 第二批再补的接口
-
-- `/api/rank/points`
-- `/api/rank/streak`
-- `/api/study/statistics`
-- `/api/checkin/calendar`
-- `/api/study-plan`
+- 根路径会进入布局后重定向到 `/dashboard`
+- 公共词库已经是当前正式页面，不再属于“后续可选页面”
+- 学习计划能力已经并入个人中心，不单独拆页
+- 排行榜当前已经完成头像展示链路，接口返回 `avatar`，前端表格和“我的排名”卡片都能消费该字段
 
 ---
 
-## 11. 当前前端骨架对应关系
+## 10. 一句话结论
 
-目前仓库中已经初始化了：
-
-- `LoginView.vue`
-- `RegisterView.vue`
-- `DashboardView.vue`
-- `AppLayout.vue`
-- `router/index.js`
-- `api/request.js`
-- `api/auth.js`
-- `stores/user.js`
-
-下一步应优先补齐：
-
-- `WordCardListView.vue`
-- `WordCardFormView.vue`
-- `StudyView.vue`
-- `WrongWordsView.vue`
-- `RankView.vue`
-- `StatisticsView.vue`
-- `ProfileView.vue`
-
----
-
-## 12. 一句话结论
-
-WordSprint 的前端应该围绕三件事组织：
+WordSprint 的前端仍然围绕三件事组织：
 
 - 今天学什么
 - 当前这题怎么答
-- 我最近学得怎么样
+- 最近学得怎么样
 
-只要页面始终围绕这三件事展开，产品就不会跑偏。
+只要页面继续围绕这三件事展开，功能扩展就不会跑偏。
