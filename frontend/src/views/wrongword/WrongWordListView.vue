@@ -263,18 +263,19 @@ onMounted(() => {
 .stat-value {
   font-size: 32px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--ws-primary);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #666;
+  color: var(--ws-text-muted);
   margin-top: 8px;
 }
 
 .table-card {
   min-height: 400px;
+  overflow: hidden;
 }
 
 .load-error-alert {
@@ -285,5 +286,17 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .table-card :deep(.el-table) {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-wrapper {
+    justify-content: center;
+  }
 }
 </style>

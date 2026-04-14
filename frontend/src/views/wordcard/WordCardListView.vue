@@ -489,4 +489,22 @@ onMounted(() => {
   margin: 0;
   padding-left: 18px;
 }
+
+@media (max-width: 900px) {
+  .table-card :deep(.el-table) {
+    overflow-x: auto;
+  }
+
+  .search-card :deep(.el-form--inline) {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-wrapper {
+    justify-content: center;
+  }
+}
 </style>
