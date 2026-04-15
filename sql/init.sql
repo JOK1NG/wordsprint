@@ -132,6 +132,8 @@ CREATE TABLE IF NOT EXISTS public_word_library (
     KEY idx_public_word_library_status (status)
 ) COMMENT='公共词库表';
 
+-- WARNING: The passwords below are for LOCAL DEVELOPMENT ONLY (password: 123456).
+-- DO NOT use these seed accounts in production. Change passwords immediately if deploying.
 INSERT INTO user (username, password, nickname, role)
 VALUES
 ('demo', '$2a$10$Js6UIK15PHTPe13s0kULsuaTU209Urj/qb6GVXEbMBmr5c0BUfpXi', 'DemoUser', 'USER'),
