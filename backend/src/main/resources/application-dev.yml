@@ -28,5 +28,8 @@ logging:
     com.example.wordsprint: info
 
 jwt:
-  secret: replace-with-your-secret-key-at-least-32-characters
+  secret: ${JWT_SECRET:wordsprint-dev-only-secret-key-do-not-use-in-production-32ch}
   expire-hours: 24
+
+cors:
+  allowed-origins: http://localhost:5173,http://127.0.0.1:5173

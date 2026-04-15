@@ -27,10 +27,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final JwtBlacklistService jwtBlacklistService;
     private final UserMapper userMapper;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, UserMapper userMapper) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+                                   JwtBlacklistService jwtBlacklistService,
+                                   UserMapper userMapper) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.jwtBlacklistService = jwtBlacklistService;
         this.userMapper = userMapper;
     }
 
@@ -43,6 +47,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
             String token = authorization.substring(BEARER_PREFIX.length());
             try {
+                if (jwtBlacklistService.isBlacklisted(token)) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 Long userId = jwtTokenProvider.parseUserId(token);
                 User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                         .eq(User::getId, userId)
